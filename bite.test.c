@@ -1,3 +1,6 @@
+
+#include <stdio.h>
+
 void print_binary(unsigned int value, int bits) {
 	int i;
 
@@ -8,10 +11,9 @@ void print_binary(unsigned int value, int bits) {
 }
 
 #include "bite.h"
-#include <stdio.h>
 
 struct bite bite;
-uint8_t buf[8] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+uint8_t buf[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 void bite_print_result()
 {
@@ -29,6 +31,11 @@ int main()
 {
 	int i;
 
+	/* Trigger UBsan
+	 * volatile uint8_t x = 0xFF;
+	   volatile uint8_t y = 32;
+	   x >> y; */
+
 	bite_init(&bite, buf/*, 8*/);
 	
 	bite_config(&bite, 16, 16);
@@ -45,12 +52,14 @@ int main()
 	assert(bite.flags != 0);
 
 	/* TEST MISALIGNED */
-	for (i = 0; i < 8; i++) { buf[i] = 0xFF; }
-	bite_config(&bite, 6, 2);
-	bite_insert(&bite, 0x12);
-	bite_insert(&bite, 0x34);
+	for (i = 0; i < 8; i++) { buf[i] = 0x00; }
+	bite_config(&bite, 5, 2);
+	bite_insert(&bite, 0xFF);
+	bite_insert(&bite, 0xFF);
 	/* bite_insert(&bite, 0x56); */
 	bite_print_result();
+
+	print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8);
 
 	return 0;
 }
