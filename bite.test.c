@@ -45,6 +45,10 @@ int main()
 	bite_write(&bite, 0x34);
 	bite_print_result();
 	assert(bite.flags == 0);
+	
+	bite_reset(&bite);
+	assert(bite_read(&bite) == 0x12);
+	assert(bite_read(&bite) == 0x34);
 
 	/* TEST OVERFLOW */
 	bite_write(&bite, 0x56);
@@ -59,17 +63,31 @@ int main()
 	/* bite_write(&bite, 0x56); */
 	bite_print_result();
 
+	bite_reset(&bite);
+	assert(bite_read(&bite) == 0x03);
+
 	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
 
 	/* TEST MISALIGNED (multibyte) */
 	for (i = 0; i < 8; i++) { buf[i] = 0x00; }
 	bite_config(&bite, 2, 16);
-	bite_write(&bite, 0xFF);
-	bite_write(&bite, 0xFF);
+	bite_write(&bite, 0xF2);
+	bite_write(&bite, 0xAF);
 	/* bite_write(&bite, 0x56); */
 	bite_print_result();
 
+	bite_reset(&bite);
+	assert(bite_read(&bite) == 0xF2);
+	assert(bite_read(&bite) == 0xAF);
+
 	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
+
+	/* TEST UNDERFLOW */
+	bite_config(&bite, 16, 16);
+	bite_write(&bite, 0x12);
+	bite_print_result();
+	bite_reset(&bite);
+	assert(bite.flags == BITE_FLAG_UNDERFLOW);
 
 	return 0;
 }

@@ -4,7 +4,12 @@
 
 enum bite_flags {
 	BITE_FLAG_NONE,
-	BITE_FLAG_OVERFLOW = 1U
+	
+	/* Read or write operation has exceed configured boundary */
+	BITE_FLAG_OVERFLOW  = 1U,
+	
+	/* Configure call during unfinished read or write operation */
+	BITE_FLAG_UNDERFLOW = 2U
 };
 
 struct bite {
@@ -87,6 +92,12 @@ void bite_init(struct bite *self, uint8_t *buf/*, size_t len*/)
 
 void bite_config(struct bite *self, size_t ofs_bits, size_t len_bits)
 {
+	if (self->_iter_bits < self->_len_bits) {
+		self->flags = BITE_FLAG_UNDERFLOW;
+	} else {
+		self->flags = 0U;
+	}
+
 	self->_ofs_bits = ofs_bits;
 	self->_len_bits = len_bits;
 	
@@ -99,10 +110,13 @@ void bite_config(struct bite *self, size_t ofs_bits, size_t len_bits)
 	} else {
 		self->_state = 0U;
 	}
-	
-	self->flags = 0U;
-	
+
 	self->_iter_bits = 0U;
+}
+
+void bite_reset(struct bite *self)
+{
+	bite_config(self, self->_ofs_bits, self->_len_bits);
 }
 
 /* Insert data byte by byte */
@@ -113,7 +127,7 @@ void bite_write(struct bite *self, uint8_t data)
 	switch (self->_state) {
 	case 0U: /* Simplest case, no misalignment */
 		self->_data[(self->_ofs_bits + self->_iter_bits) / 8U] = data;
-	
+		
 		break;
 
 	case 1U: { /* Misaligned, but fits one byte */
@@ -124,8 +138,6 @@ void bite_write(struct bite *self, uint8_t data)
 		uint8_t ofs_from_lsb = (8U - ofs_from_msb - self->_len_bits);
 
 		uint8_t mask = ((1U << self->_len_bits) - 1U) << ofs_from_lsb;
-			
-		/* print_binary(mask, 8); */
 	
 		*d = (*d & (uint8_t)~mask) | ((data << ofs_from_lsb) & mask);
 
@@ -150,4 +162,52 @@ void bite_write(struct bite *self, uint8_t data)
 	}
 
 	self->_iter_bits += 8U;
+}
+
+/* Insert data byte by byte */
+uint8_t bite_read(struct bite *self)
+{
+	uint8_t r = 0;
+
+	bite_catch_overflow(self);
+	
+	switch (self->_state) {
+	case 0U: /* Simplest case, no misalignment */
+		r = self->_data[(self->_ofs_bits + self->_iter_bits) / 8U];
+		
+		break;
+
+	case 1U: { /* Misaligned, but fits one byte */
+		uint8_t *d = &self->_data[
+				(self->_ofs_bits + self->_iter_bits) / 8U];
+		
+		uint8_t ofs_from_msb = self->_ofs_bits % 8U;
+		uint8_t ofs_from_lsb = (8U - ofs_from_msb - self->_len_bits);
+
+		uint8_t mask = ((1U << self->_len_bits) - 1U) << ofs_from_lsb;
+	
+		r = (*d & (uint8_t)mask) >> ofs_from_lsb;
+
+		break;
+	}
+
+	case 2U: { /* Multibyte misalignment */
+		uint8_t *d = &self->_data[
+				(self->_ofs_bits + self->_iter_bits) / 8U];
+
+		uint8_t ofs_from_msb = self->_ofs_bits % 8U;
+		uint8_t ofs_from_lsb = (8U - ofs_from_msb);
+
+		r = (d[0] << ofs_from_msb) | (d[1] >> ofs_from_lsb);
+
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	self->_iter_bits += 8U;
+
+	return r;
 }
