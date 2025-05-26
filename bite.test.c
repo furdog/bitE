@@ -14,6 +14,12 @@ void print_binary(unsigned int value, int bits) {
 
 struct bite bite;
 uint8_t buf[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+void clearbuf()
+{
+	int i;
+
+	for (i = 0; i < 8; i++) { buf[i] = 0xAA; }
+}
 
 void bite_print_result()
 {
@@ -29,13 +35,12 @@ void bite_print_result()
 
 int main()
 {
-	int i;
-
 	/* Trigger UBsan
 	 * volatile uint8_t x = 0xFF;
 	   volatile uint8_t y = 32;
 	   x >> y; */
-
+	
+	clearbuf();
 	bite_init(&bite, buf/*, 8*/);
 	
 	bite_config(&bite, 16, 16);
@@ -56,7 +61,7 @@ int main()
 	assert(bite.flags != 0);
 
 	/* TEST MISALIGNED (one byte) */
-	for (i = 0; i < 8; i++) { buf[i] = 0x00; }
+	clearbuf();
 	bite_config(&bite, 5, 2);
 	bite_write(&bite, 0xFF);
 	bite_write(&bite, 0xFF);
@@ -69,7 +74,7 @@ int main()
 	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
 
 	/* TEST MISALIGNED (multibyte) */
-	for (i = 0; i < 8; i++) { buf[i] = 0x00; }
+	clearbuf();
 	bite_config(&bite, 2, 16);
 	bite_write(&bite, 0xF2);
 	bite_write(&bite, 0xAF);
@@ -79,6 +84,20 @@ int main()
 	bite_reset(&bite);
 	assert(bite_read(&bite) == 0xF2);
 	assert(bite_read(&bite) == 0xAF);
+
+	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
+
+	/* TEST MISALIGNED (Ending) */
+	clearbuf();
+	bite_config(&bite, 8, 9);
+	bite_write(&bite, 0xF2);
+	bite_write(&bite, 0xAF);
+	/* bite_write(&bite, 0x56); */
+	bite_print_result();
+
+	bite_reset(&bite);
+	assert(bite_read(&bite) == 0xF2);
+	assert(bite_read(&bite) != 0xAF);
 
 	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
 
