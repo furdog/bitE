@@ -198,7 +198,13 @@ uint8_t bite_read(struct bite *self)
 		uint8_t ofs_from_msb = self->_ofs_bits % 8U;
 		uint8_t ofs_from_lsb = (8U - ofs_from_msb);
 
-		r = (d[0] << ofs_from_msb) | (d[1] >> ofs_from_lsb);
+		/* Protection from undefined behaviour 
+		 * WARNING FLAWED LOGIC, FIXME */
+		if (ofs_from_msb == 0U) {
+			r = d[0];
+		} else {
+			r = (d[0] << ofs_from_msb) | (d[1] >> ofs_from_lsb);
+		}
 
 		break;
 	}
