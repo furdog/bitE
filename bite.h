@@ -61,12 +61,12 @@ bool bite_range_fits_one_byte(struct bite *self)
 	return (((self->_ofs_bits % 8U) + self->_len_bits) <= 8U);
 }
 
-uint8_t bite_mask_from_msb(struct bite *self)
+void bite_catch_overflow(struct bite *self)
 {
-	uint8_t ofs_from_msb = self->_ofs_bits % 8U;
-	uint8_t len = self->_len_bits;
-
-	return ((1U << len) - 1U) << (8U - ofs_from_msb - len);
+	if (self->_iter_bits >= self->_len_bits) {
+		self->_state = (uint8_t)-1;
+		self->flags |= BITE_FLAG_OVERFLOW;
+	}
 }
 
 void bite_init(struct bite *self, uint8_t *buf/*, size_t len*/)
@@ -106,18 +106,13 @@ void bite_config(struct bite *self, size_t ofs_bits, size_t len_bits)
 }
 
 /* Insert data byte by byte */
-void bite_insert(struct bite *self, uint8_t data)
+void bite_write(struct bite *self, uint8_t data)
 {
+	bite_catch_overflow(self);
+	
 	switch (self->_state) {
 	case 0U: /* Simplest case, no misalignment */
-		if (self->_iter_bits >= self->_len_bits) {
-			self->flags |= BITE_FLAG_OVERFLOW;
-			break;
-		}
-
 		self->_data[(self->_ofs_bits + self->_iter_bits) / 8U] = data;
-
-		self->_iter_bits += 8U;
 	
 		break;
 
@@ -125,21 +120,34 @@ void bite_insert(struct bite *self, uint8_t data)
 		uint8_t *d = &self->_data[
 				(self->_ofs_bits + self->_iter_bits) / 8U];
 		
-		uint8_t mask = bite_mask_from_msb(self);
-		
-		print_binary(mask, 8);
+		uint8_t ofs_from_msb = self->_ofs_bits % 8U;
+		uint8_t ofs_from_lsb = (8U - ofs_from_msb - self->_len_bits);
+
+		uint8_t mask = ((1U << self->_len_bits) - 1U) << ofs_from_lsb;
+			
+		/* print_binary(mask, 8); */
 	
-		*d = (*d & (uint8_t)~mask) |
-		     ((data << (8 - self->_ofs_bits - self->_len_bits)) & mask);
+		*d = (*d & (uint8_t)~mask) | ((data << ofs_from_lsb) & mask);
 
 		break;
 	}
 		
-	case 2U: /* Start-End misalignment */
-		assert(0);
-		break;	
+	case 2U: { /* Multibyte misalignment */
+		uint8_t *d = &self->_data[
+				(self->_ofs_bits + self->_iter_bits) / 8U];
 
+		uint8_t ofs_from_msb = self->_ofs_bits % 8U;
+		uint8_t ofs_from_lsb = (8U - ofs_from_msb);
+
+		d[0] = bite_mix_u8(d[0], ofs_from_msb, data >> ofs_from_msb);
+		d[1] = bite_mix_u8(data << ofs_from_lsb, ofs_from_msb, d[1]);
+
+		break;
+	}
+	
 	default:
 		break;
 	}
+
+	self->_iter_bits += 8U;
 }

@@ -41,25 +41,35 @@ int main()
 	bite_config(&bite, 16, 16);
 
 	/* TEST NORMAL */
-	bite_insert(&bite, 0x12);
-	bite_insert(&bite, 0x34);
+	bite_write(&bite, 0x12);
+	bite_write(&bite, 0x34);
 	bite_print_result();
 	assert(bite.flags == 0);
 
 	/* TEST OVERFLOW */
-	bite_insert(&bite, 0x56);
+	bite_write(&bite, 0x56);
 	bite_print_result();
 	assert(bite.flags != 0);
 
-	/* TEST MISALIGNED */
+	/* TEST MISALIGNED (one byte) */
 	for (i = 0; i < 8; i++) { buf[i] = 0x00; }
 	bite_config(&bite, 5, 2);
-	bite_insert(&bite, 0xFF);
-	bite_insert(&bite, 0xFF);
-	/* bite_insert(&bite, 0x56); */
+	bite_write(&bite, 0xFF);
+	bite_write(&bite, 0xFF);
+	/* bite_write(&bite, 0x56); */
 	bite_print_result();
 
-	print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8);
+	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
+
+	/* TEST MISALIGNED (multibyte) */
+	for (i = 0; i < 8; i++) { buf[i] = 0x00; }
+	bite_config(&bite, 2, 16);
+	bite_write(&bite, 0xFF);
+	bite_write(&bite, 0xFF);
+	/* bite_write(&bite, 0x56); */
+	bite_print_result();
+
+	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
 
 	return 0;
 }
