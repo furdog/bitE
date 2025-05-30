@@ -33,13 +33,13 @@ void bite_print_result()
 	fflush(0);
 }
 
-int main()
+void bite_test()
 {
 	/* Trigger UBsan
 	 * volatile uint8_t x = 0xFF;
 	   volatile uint8_t y = 32;
 	   x >> y; */
-	
+
 	clearbuf();
 	bite_init(&bite, buf/*, 8*/);
 	
@@ -107,6 +107,23 @@ int main()
 	bite_print_result();
 	bite_reset(&bite);
 	assert(bite.flags == BITE_FLAG_UNDERFLOW);
+}
+
+
+int main()
+{		
+	uint8_t d[2] = {0xFF, 0xFF};
+	
+	uint8_t data = 0xA0;
+	uint8_t ofs  = 1;
+
+	BITE_COPY_U8(data >> ofs, d[0], ofs, 8 - ofs);
+	BITE_COPY_U8(data,        d[1],   0,     ofs);
+
+	print_binary(d[0], 8);
+	print_binary(d[1], 8);
+
+	/* bite_test(); */
 
 	return 0;
 }
