@@ -36,17 +36,32 @@ struct bite {
 	size_t  _iter_bits;
 };
 
-uint8_t *bite_get_dst_data_u8(struct bite *self)
+bool bite_catch_overflow(struct bite *self)
 {
-	return &self->_data[(self->_ofs_bits + self->_iter_bits) / 8U];
-}
+	bool result = false;
 
-void bite_catch_overflow(struct bite *self)
-{
 	if (self->_iter_bits >= self->_len_bits) {
 		self->_state = BITE_STATE_INVALID;
 		self->flags |= BITE_FLAG_OVERFLOW;
+
+		result = true;
 	}
+
+	return result;
+}
+
+uint8_t *bite_get_dst_data_u8(struct bite *self)
+{
+	uint8_t *result = NULL;
+
+	/* Only read data if no overflow detected */
+	if (!bite_catch_overflow(self)) {
+		result = &self->_data[
+				(self->_ofs_bits + self->_iter_bits) / 8U
+			 ];
+	}
+	
+	return result;
 }
 
 void bite_init(struct bite *self, uint8_t *buf/*, size_t len*/)
@@ -97,8 +112,6 @@ void bite_write(struct bite *self, uint8_t data)
 	uint8_t ofs = self->_ofs_bits % 8U;
 	uint8_t bits_left = self->_len_bits - self->_iter_bits;
 
-	bite_catch_overflow(self);
-	
 	d = bite_get_dst_data_u8(self);
 	
 	switch (self->_state) {
@@ -110,16 +123,17 @@ void bite_write(struct bite *self, uint8_t data)
 			/* If there are still bits left,
 			 * Shift them to the left part of the byte (MSB) */
 			d[0] = data << (8U - bits_left);
-			
+
 			/* example: 00001101 -> 11010000 */
 		}
 
+		self->_iter_bits += 8U;
 		break;
 
 	case BITE_STATE_UNALIGNED: {
 		/* How many uncarried bits are left? */
 		uint8_t uncarried = 8U - ofs;
-		
+
 		/* Check if we have to carry remaining bits */
 		if (bits_left > uncarried) {
 			/* How many bits are carried to the next byte? */
@@ -155,14 +169,13 @@ void bite_write(struct bite *self, uint8_t data)
 				((data << (8U - (ofs + bits_left))) & mask);
 		}
 
-		break;
-	}
-	
-	default:
+		self->_iter_bits += 8U;
 		break;
 	}
 
-	self->_iter_bits += 8U;
+	default:
+		break;
+	}
 }
 
 /* Insert data byte by byte */
@@ -173,11 +186,9 @@ uint8_t bite_read(struct bite *self)
 	uint8_t *d;
 	uint8_t ofs = self->_ofs_bits % 8U;
 	uint8_t bits_left = self->_len_bits - self->_iter_bits;
-		
-	bite_catch_overflow(self);
-	
+
 	d = bite_get_dst_data_u8(self);
-	
+
 	switch (self->_state) {
 	case BITE_STATE_ALIGNED:
 		if (bits_left >= 8U) {
@@ -186,12 +197,13 @@ uint8_t bite_read(struct bite *self)
 			r = d[0] >> (8U - bits_left);
 		}
 
+		self->_iter_bits += 8U;
 		break;
 
 	case BITE_STATE_UNALIGNED: {
 		/* How many uncarried bits are left? */
 		uint8_t uncarried = 8U - ofs;
-		
+
 		/* Check if we have to carry remaining bits */
 		if (bits_left > uncarried) {
 			/* How many bits are carried to the next byte? */
@@ -225,14 +237,13 @@ uint8_t bite_read(struct bite *self)
 			r = (d[0] & mask) >> (8U - (ofs + bits_left));
 		}
 
+		self->_iter_bits += 8U;
 		break;
 	}
 
 	default:
 		break;
 	}
-
-	self->_iter_bits += 8U;
 
 	return r;
 }
