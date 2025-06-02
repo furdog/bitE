@@ -4,8 +4,8 @@
 
 enum bite_state
 {
-	BITE_STATE_INVALID    = (uint8_t)-1,
-	BITE_STATE_ALIGNED    = 0U,
+	BITE_STATE_INVALID   = (uint8_t)-1,
+	BITE_STATE_ALIGNED   = 0U,
 	BITE_STATE_UNALIGNED = 1U
 };
 
@@ -97,11 +97,17 @@ void bite_reset(struct bite *self)
 #define BITE_MASK_U8(ofs, len) \
 	((0xFFU >> (ofs)) ^ (0xFFU >> ((ofs) + (len))))
 
-#define BITE_COPY_U8(src, dst, ofs, len)                        \
-	do {                                                    \
-		uint8_t mask = BITE_MASK_U8(ofs, len);          \
-		(dst) = ((dst) &       (uint8_t)~mask) |        \
-			((src) << (8U - (ofs) - (len)) & mask); \
+#define BITE_COPY_U8(src, dst, ofs, len)                          \
+	do {                                                      \
+		uint8_t mask = BITE_MASK_U8(ofs, len);            \
+		(dst) = ((dst) &       (uint8_t)~mask) |          \
+			(((src) << (8U - (ofs) - (len))) & mask); \
+	} while (false)
+
+#define BITE_COPY_U8_REV(src, dst, ofs, len)             \
+	do {                                             \
+		uint8_t mask = BITE_MASK_U8(ofs, len);   \
+		(dst) |= ((src) & mask) >> (8U - (len)); \
 	} while (false)
 
 /* Insert data byte by byte */
@@ -125,18 +131,32 @@ void bite_write(struct bite *self, uint8_t data)
 		}
 
 		break;
-		
+
 	case BITE_STATE_UNALIGNED: {
 		uint8_t msb = 8U - ofs;
+		uint8_t lsb = ofs;
 		
 		/* Check if we have to carry remaining LSB bits */
 		if (bits_left > msb) {
-			uint8_t lsb = (bits_left < 8U) ?
-						(bits_left - msb) : ofs;
+			uint8_t mask_l;
+			uint8_t mask_r;
+
+			if (bits_left < 8U) {
+				lsb = (bits_left - msb);
+			}
+
+			mask_l =  0xFFU << msb;
+			mask_r =  0xFFU >> lsb;
+
+			d[0] = (d[0] & mask_l) | 
+				((data >>        lsb) & mask_l);
+
+			d[1] = (d[1] & mask_r) |
+				((data << (8U - lsb)) & mask_r);
 
 			/* Split onto two parts */
-			BITE_COPY_U8(data >> ofs, d[0], ofs, msb);
-			BITE_COPY_U8(data,        d[1],  0U, lsb);
+			/* BITE_COPY_U8(data >> ofs, d[0], ofs, msb);
+			   BITE_COPY_U8(data,        d[1],  0U, lsb);*/
 		} else {
 			/* Fit into single byte */
 			BITE_COPY_U8(data, d[0], ofs, bits_left);
@@ -170,20 +190,22 @@ uint8_t bite_read(struct bite *self)
 		if (bits_left >= 8U) {
 			r = d[0];
 		} else {
-			/* Copy/shift remaining bits into LSB */
-			BITE_COPY_U8(d[0], r, 7U - bits_left, bits_left);
+			BITE_COPY_U8_REV(d[0], r, 0U, bits_left);
 		}
 
 		break;
 
 	case BITE_STATE_UNALIGNED: {
-		/* Check if we have to carry remaining LSB bits */
-		if (bits_left > (8U - ofs)) {
-			/* Split onto two parts */
-	
+		uint8_t msb = 8U - ofs;
+		
+		if (bits_left > msb) {
+			uint8_t lsb = (bits_left < 8U) ?
+						(bits_left - msb) : ofs;
+
+			BITE_COPY_U8_REV(d[0], r,  ofs, msb + 1U);
+			BITE_COPY_U8_REV(d[1], r,  0U,  msb + lsb);
 		} else {
-			/* Fit into single byte */
-	
+			BITE_COPY_U8_REV(d[0], r, ofs, bits_left + 1U);
 		}
 
 		break;

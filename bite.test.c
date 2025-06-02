@@ -125,8 +125,10 @@ void bite_test()
 
 
 int main()
-{		
-	 uint8_t d[2] = {0x00, 0x00};
+{
+	uint8_t res = 0;
+
+	/* uint8_t d[2] = {0x00, 0x00};
 	
 	uint8_t data = 0xFF;
 	uint8_t ofs  = 7;
@@ -135,17 +137,24 @@ int main()
 	BITE_COPY_U8(data,        d[1],   0,     ofs);
 
 	print_binary(d[0], 8);
-	print_binary(d[1], 8);
+	print_binary(d[1], 8); */
+
+	BITE_COPY_U8_REV(0xF0, res, 0, 4);
+	print_binary(res, 8);
 
 	clearbuf(0x00);
 	bite_init(&bite, buf/*, 8*/);
-	bite_config(&bite, 7, 6);
-	bite_write(&bite, 0xFF);
-	bite_write(&bite, 0xFF);
+	/* bite_config(&bite, 7, 6); */
+	bite_config(&bite, 1, 8);
 	bite_write(&bite, 0xFF);
 	bite_test_print_result();
 	bite_test_print_result_binary();
-	
+
+	bite_reset(&bite);
+	res = bite_read(&bite);
+	print_binary(res, 8);
+	assert(res == 0xFF >> 2);
+
 	/* bite_test(); */
 
 	return 0;
