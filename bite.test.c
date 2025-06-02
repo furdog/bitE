@@ -111,7 +111,7 @@ void bite_test()
 
 	bite_reset(&bite);
 	assert(bite_read(&bite) == 0xF2);
-	assert(bite_read(&bite) != 0xAF);
+	assert(bite_read(&bite) == 0xAF >> 7);
 
 	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
 
@@ -139,7 +139,6 @@ int main()
 	print_binary(d[0], 8);
 	print_binary(d[1], 8); */
 
-	BITE_COPY_U8_REV(0xF0, res, 0, 4);
 	print_binary(res, 8);
 
 	clearbuf(0x00);
@@ -155,7 +154,7 @@ int main()
 	print_binary(res, 8);
 	assert(res == 0xFF);
 
-	/* bite_test(); */
+	bite_test();
 
 	return 0;
 }
