@@ -149,10 +149,10 @@ void bite_write(struct bite *self, uint8_t data)
 			mask_r =  0xFFU >> lsb;
 
 			d[0] = (d[0] & mask_l) | 
-				((data >>        lsb) & mask_l);
+				((data >>        lsb) & (uint8_t)~mask_l);
 
 			d[1] = (d[1] & mask_r) |
-				((data << (8U - lsb)) & mask_r);
+				((data << (8U - lsb)) & (uint8_t)~mask_r);
 
 			/* Split onto two parts */
 			/* BITE_COPY_U8(data >> ofs, d[0], ofs, msb);
