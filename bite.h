@@ -90,26 +90,6 @@ void bite_reset(struct bite *self)
 	bite_config(self, self->_ofs_bits, self->_len_bits);
 }
 
-/* WARNING: Offset SHALL be >= 0 and < 8 and to prevent UB
-   WARNING: Multiple use of macro arguments
-   WARNING: Multiple len + ofs shall not exceed 7
- * Offset is from MSB */
-#define BITE_MASK_U8(ofs, len) \
-	((0xFFU >> (ofs)) ^ (0xFFU >> ((ofs) + (len))))
-
-#define BITE_COPY_U8(src, dst, ofs, len)                          \
-	do {                                                      \
-		uint8_t mask = BITE_MASK_U8(ofs, len);            \
-		(dst) = ((dst) &       (uint8_t)~mask) |          \
-			(((src) << (8U - (ofs) - (len))) & mask); \
-	} while (false)
-
-#define BITE_COPY_U8_REV(src, dst, ofs, len)             \
-	do {                                             \
-		uint8_t mask = BITE_MASK_U8(ofs, len);   \
-		(dst) |= ((src) & mask) >> (8U - (len)); \
-	} while (false)
-
 /* Insert data byte by byte */
 void bite_write(struct bite *self, uint8_t data)
 {
@@ -168,8 +148,11 @@ void bite_write(struct bite *self, uint8_t data)
 			d[1] = (d[1] & mask_r) |
 				((data << (8U - carried)) & (uint8_t)~mask_r);
 		} else {
-			/* Fit into single byte */
-			BITE_COPY_U8(data, d[0], ofs, bits_left);
+			uint8_t mask = (0xFFU >>              ofs) ^
+				       (0xFFU >> (ofs + bits_left));
+			
+			d[0] = (d[0] & (uint8_t)~mask) |
+				((data << (8U - (ofs + bits_left))) & mask);
 		}
 
 		break;
@@ -200,22 +183,46 @@ uint8_t bite_read(struct bite *self)
 		if (bits_left >= 8U) {
 			r = d[0];
 		} else {
-			BITE_COPY_U8_REV(d[0], r, 0U, bits_left);
+			r = d[0] >> (8U - bits_left);
 		}
 
 		break;
 
 	case BITE_STATE_UNALIGNED: {
-		uint8_t msb = 8U - ofs;
+		/* How many uncarried bits are left? */
+		uint8_t uncarried = 8U - ofs;
 		
-		if (bits_left > msb) {
-			uint8_t lsb = (bits_left < 8U) ?
-						(bits_left - msb) : ofs;
+		/* Check if we have to carry remaining bits */
+		if (bits_left > uncarried) {
+			/* How many bits are carried to the next byte? */
+			uint8_t carried;
 
-			BITE_COPY_U8_REV(d[0], r,  ofs, msb + 1U);
-			BITE_COPY_U8_REV(d[1], r,  0U,  msb + lsb);
+			/* Masks for left and right bytes */
+			uint8_t mask_l;
+			uint8_t mask_r;
+
+			if (bits_left >= 8U) {
+				/* We carry exactly OFFSET of bits, if there
+				 * are more data to get from stream */
+				carried = ofs;
+			} else {
+				/* We only carry remaining bits. */
+				carried = (bits_left - uncarried);
+			}
+
+			/* Apply masks */
+			mask_l = 0xFFU << uncarried;
+			mask_r = 0xFFU >> carried;
+
+			r = ((d[0] & (uint8_t)~mask_l) << (8U - uncarried)) |
+			    ((d[1] & (uint8_t)~mask_r) >> (8U - carried));
+
+			print_binary(r, 8);
 		} else {
-			BITE_COPY_U8_REV(d[0], r, ofs, bits_left + 1U);
+			uint8_t mask = (0xFFU >>              ofs) ^
+				       (0xFFU >> (ofs + bits_left));
+
+			r = (d[0] & mask) >> (8U - (ofs + bits_left));
 		}
 
 		break;

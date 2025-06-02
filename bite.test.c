@@ -153,7 +153,7 @@ int main()
 	bite_reset(&bite);
 	res = bite_read(&bite);
 	print_binary(res, 8);
-	assert(res == 0xFF >> 2);
+	assert(res == 0xFF);
 
 	/* bite_test(); */
 
