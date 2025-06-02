@@ -1,3 +1,4 @@
 *.ctu-info
 *.dump
 *.exe
+*.s

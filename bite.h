@@ -118,7 +118,7 @@ void bite_write(struct bite *self, uint8_t data)
 {
 	uint8_t *d;
 	uint8_t ofs       = self->_ofs_bits % 8U;
-	uint8_t bits_left = self->_len_bits - self->_iter_bits;
+	size_t  bits_left = self->_len_bits - self->_iter_bits;
 
 	d = _bite_get_dst_data_u8(self);
 	
@@ -157,7 +157,7 @@ void bite_write(struct bite *self, uint8_t data)
 				carried = ofs;
 			} else {
 				/* We only carry remaining bits. */
-				carried = (bits_left - uncarried);
+				carried = (uint8_t)(bits_left - uncarried);
 			}
 
 			/* Apply masks */
@@ -170,8 +170,8 @@ void bite_write(struct bite *self, uint8_t data)
 			d[1] = (d[1] & mask_r) |
 				((data << (8U - carried)) & (uint8_t)~mask_r);
 		} else {
-			uint8_t mask = (0xFFU >>              ofs) ^
-				       (0xFFU >> (ofs + bits_left));
+			uint8_t mask = (0xFFU >>                       ofs) ^
+				       (0xFFU >> (uint8_t)(ofs + bits_left));
 			
 			d[0] = (d[0] & (uint8_t)~mask) |
 				((data << (8U - (ofs + bits_left))) & mask);
@@ -192,7 +192,7 @@ uint8_t bite_read(struct bite *self)
 
 	uint8_t *d;
 	uint8_t ofs = self->_ofs_bits % 8U;
-	uint8_t bits_left = self->_len_bits - self->_iter_bits;
+	size_t  bits_left = self->_len_bits - self->_iter_bits;
 
 	d = _bite_get_dst_data_u8(self);
 
@@ -226,7 +226,7 @@ uint8_t bite_read(struct bite *self)
 				carried = ofs;
 			} else {
 				/* We only carry remaining bits. */
-				carried = (bits_left - uncarried);
+				carried = (uint8_t)(bits_left - uncarried);
 			}
 
 			/* Apply masks */
@@ -236,8 +236,8 @@ uint8_t bite_read(struct bite *self)
 			r = ((d[0] & (uint8_t)~mask_l) << (8U - uncarried)) |
 			    ((d[1] & (uint8_t)~mask_r) >> (8U - carried));
 		} else {
-			uint8_t mask = (0xFFU >>              ofs) ^
-				       (0xFFU >> (ofs + bits_left));
+			uint8_t mask = (0xFFU >>                       ofs) ^
+				       (0xFFU >> (uint8_t)(ofs + bits_left));
 
 			r = (d[0] & mask) >> (8U - (ofs + bits_left));
 		}
@@ -251,4 +251,20 @@ uint8_t bite_read(struct bite *self)
 	}
 
 	return r;
+}
+
+void bite_set_flag(struct bite *self, size_t bit_idx, bool set)
+{
+	uint8_t  mask = 128U >> (uint8_t)(bit_idx % 8U);
+	uint8_t *data = &self->_data[bit_idx / 8U];
+
+	*data = set ? (*data | mask) : (*data & (uint8_t)~mask);
+}
+
+bool bite_get_flag(struct bite *self, size_t bit_idx)
+{
+	uint8_t mask = 128U >> (uint8_t)(bit_idx % 8U);
+	uint8_t data = self->_data[bit_idx / 8U];
+
+	return (data & mask) > 0U;
 }

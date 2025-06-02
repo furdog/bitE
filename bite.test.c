@@ -133,6 +133,9 @@ int main()
 	clearbuf(0x00);
 	bite_begin(&bite, 1, 8);
 	bite_write(&bite, 0xFF);
+	bite_set_flag(&bite, 35, true);
+	assert(bite_get_flag(&bite, 35) == true);
+	assert(bite_get_flag(&bite, 36) == false);
 	bite_test_print_result();
 	bite_test_print_result_binary();
 
