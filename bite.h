@@ -124,39 +124,49 @@ void bite_write(struct bite *self, uint8_t data)
 	switch (self->_state) {
 	case BITE_STATE_ALIGNED:
 		if (bits_left >= 8U) {
+			/* Just insert byte as it is */
 			d[0] = data;
 		} else {
-			/* Copy/shift remaining bits into MSB */
-			BITE_COPY_U8(data, d[0], 0U, bits_left);
+			/* If there are still bits left,
+			 * Shift them to the left part of the byte (MSB) */
+			d[0] = data << (8U - bits_left);
+			
+			/* example: 00001101 -> 11010000 */
 		}
 
 		break;
 
 	case BITE_STATE_UNALIGNED: {
-		uint8_t msb = 8U - ofs;
-		uint8_t lsb = ofs;
+		/* How many uncarried bits are left? */
+		uint8_t uncarried = 8U - ofs;
 		
-		/* Check if we have to carry remaining LSB bits */
-		if (bits_left > msb) {
+		/* Check if we have to carry remaining bits */
+		if (bits_left > uncarried) {
+			/* How many bits are carried to the next byte? */
+			uint8_t carried;
+
+			/* Masks for left and right bytes */
 			uint8_t mask_l;
 			uint8_t mask_r;
 
-			if (bits_left < 8U) {
-				lsb = (bits_left - msb);
+			if (bits_left >= 8U) {
+				/* We carry exactly OFFSET of bits, if there
+				 * are more data to get from stream */
+				carried = ofs;
+			} else {
+				/* We only carry remaining bits. */
+				carried = (bits_left - uncarried);
 			}
 
-			mask_l =  0xFFU << msb;
-			mask_r =  0xFFU >> lsb;
+			/* Apply masks */
+			mask_l = 0xFFU << uncarried;
+			mask_r = 0xFFU >> carried;
 
-			d[0] = (d[0] & mask_l) | 
-				((data >>        lsb) & (uint8_t)~mask_l);
+			d[0] = (d[0] & mask_l) |
+				((data >>       carried)  & (uint8_t)~mask_l);
 
 			d[1] = (d[1] & mask_r) |
-				((data << (8U - lsb)) & (uint8_t)~mask_r);
-
-			/* Split onto two parts */
-			/* BITE_COPY_U8(data >> ofs, d[0], ofs, msb);
-			   BITE_COPY_U8(data,        d[1],  0U, lsb);*/
+				((data << (8U - carried)) & (uint8_t)~mask_r);
 		} else {
 			/* Fit into single byte */
 			BITE_COPY_U8(data, d[0], ofs, bits_left);
