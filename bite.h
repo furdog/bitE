@@ -2,6 +2,9 @@
 #include <stdbool.h>
 #include <assert.h>
 
+/******************************************************************************
+ * CLASS
+ *****************************************************************************/
 enum bite_state
 {
 	BITE_STATE_INVALID   = (uint8_t)-1,
@@ -13,49 +16,45 @@ enum bite_flags {
 	BITE_FLAG_NONE,
 	
 	/* Read or write operation has exceed configured boundary */
-	BITE_FLAG_OVERFLOW  = 1U,
+	BITE_FLAG_OVERFLOW    = 1U,
 	
 	/* Configure call during unfinished read or write operation */
-	BITE_FLAG_UNDERFLOW = 2U
+	BITE_FLAG_UNDERFLOW   = 2U,
+
+	/* Incorect use of API */
+	BITE_FLAG_INVALID_USE = 4U
 };
 
 struct bite {
-	uint8_t _state;
-
-	/* Pointer to external buffer */
-	uint8_t *_data;
-	/* size_t   _len; */
-
 	/* Config */
+	uint8_t *_data;
+
 	size_t _ofs_bits;
 	size_t _len_bits;
 
 	/* Runtime */
-	uint8_t flags;
-
 	size_t  _iter_bits;
+
+	uint8_t _state;
+	uint8_t  flags;
 };
 
-bool bite_catch_overflow(struct bite *self)
-{
-	bool result = false;
-
-	if (self->_iter_bits >= self->_len_bits) {
-		self->_state = BITE_STATE_INVALID;
-		self->flags |= BITE_FLAG_OVERFLOW;
-
-		result = true;
-	}
-
-	return result;
-}
-
-uint8_t *bite_get_dst_data_u8(struct bite *self)
+/******************************************************************************
+ * PRIVATE
+ *****************************************************************************/
+uint8_t *_bite_get_dst_data_u8(struct bite *self)
 {
 	uint8_t *result = NULL;
 
-	/* Only read data if no overflow detected */
-	if (!bite_catch_overflow(self)) {
+	/* Check state */
+	if (self->_state == (uint8_t)BITE_STATE_INVALID) {
+		self-> flags |= BITE_FLAG_INVALID_USE;
+	/* Check if not out of allowed bounds */
+	} else if (self->_iter_bits >= self->_len_bits) {
+		self->_state = BITE_STATE_INVALID;
+		self->flags |= BITE_FLAG_OVERFLOW;
+	/* Read data if everything is ok */
+	} else {
 		result = &self->_data[
 				(self->_ofs_bits + self->_iter_bits) / 8U
 			 ];
@@ -64,26 +63,28 @@ uint8_t *bite_get_dst_data_u8(struct bite *self)
 	return result;
 }
 
-void bite_init(struct bite *self, uint8_t *buf/*, size_t len*/)
+/******************************************************************************
+ * PUBLIC
+ *****************************************************************************/
+void bite_init(struct bite *self, uint8_t *buf)
 {
-	self->_state = BITE_STATE_INVALID;
-
+	/* Config */
 	self->_data = buf;
-	/* size_t   _len; */
 
 	self->_ofs_bits = 0U;
 	self->_len_bits = 0U;
 
 	/* Runtime */
-	self->flags = 0U;
-
 	self->_iter_bits = 0U;
+
+	self->_state = BITE_STATE_INVALID;
+	self-> flags = 0U;
 }
 
-void bite_config(struct bite *self, size_t ofs_bits, size_t len_bits)
+void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits)
 {
 	if (self->_iter_bits < self->_len_bits) {
-		self->flags = BITE_FLAG_UNDERFLOW;
+		self->flags |= BITE_FLAG_UNDERFLOW;
 	} else {
 		self->flags = 0U;
 	}
@@ -100,19 +101,26 @@ void bite_config(struct bite *self, size_t ofs_bits, size_t len_bits)
 	self->_iter_bits = 0U;
 }
 
-void bite_reset(struct bite *self)
-{
-	bite_config(self, self->_ofs_bits, self->_len_bits);
+void bite_end(struct bite *self)
+{	
+	if (self->_iter_bits < self->_len_bits) {
+		self->_state  = BITE_STATE_INVALID;
+		self-> flags |= BITE_FLAG_UNDERFLOW;
+	}
 }
 
-/* Insert data byte by byte */
+void bite_rewind(struct bite *self)
+{
+	self->_iter_bits = 0U;
+}
+
 void bite_write(struct bite *self, uint8_t data)
 {
 	uint8_t *d;
-	uint8_t ofs = self->_ofs_bits % 8U;
+	uint8_t ofs       = self->_ofs_bits % 8U;
 	uint8_t bits_left = self->_len_bits - self->_iter_bits;
 
-	d = bite_get_dst_data_u8(self);
+	d = _bite_get_dst_data_u8(self);
 	
 	switch (self->_state) {
 	case BITE_STATE_ALIGNED:
@@ -178,7 +186,6 @@ void bite_write(struct bite *self, uint8_t data)
 	}
 }
 
-/* Insert data byte by byte */
 uint8_t bite_read(struct bite *self)
 {
 	uint8_t r = 0;
@@ -187,7 +194,7 @@ uint8_t bite_read(struct bite *self)
 	uint8_t ofs = self->_ofs_bits % 8U;
 	uint8_t bits_left = self->_len_bits - self->_iter_bits;
 
-	d = bite_get_dst_data_u8(self);
+	d = _bite_get_dst_data_u8(self);
 
 	switch (self->_state) {
 	case BITE_STATE_ALIGNED:
@@ -228,8 +235,6 @@ uint8_t bite_read(struct bite *self)
 
 			r = ((d[0] & (uint8_t)~mask_l) << (8U - uncarried)) |
 			    ((d[1] & (uint8_t)~mask_r) >> (8U - carried));
-
-			print_binary(r, 8);
 		} else {
 			uint8_t mask = (0xFFU >>              ofs) ^
 				       (0xFFU >> (ofs + bits_left));

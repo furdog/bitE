@@ -54,72 +54,70 @@ void bite_test()
 	   volatile uint8_t y = 32;
 	   x >> y; */
 
-	clearbuf(0xAA);
 	bite_init(&bite, buf/*, 8*/);
 	
-	bite_config(&bite, 16, 16);
-
 	/* TEST NORMAL */
+	clearbuf(0xAA);
+	bite_begin(&bite, 16, 16);
 	bite_write(&bite, 0x12);
 	bite_write(&bite, 0x34);
+	bite_end(&bite);
 	bite_test_print_result();
 	assert(bite.flags == 0);
-	
-	bite_reset(&bite);
-	assert(bite_read(&bite) == 0x12);
-	assert(bite_read(&bite) == 0x34);
 
 	/* TEST OVERFLOW */
+	bite_begin(&bite, 16, 16);
 	bite_write(&bite, 0x56);
+	bite_write(&bite, 0x78);
+	bite_write(&bite, 0x90);
+	bite_end(&bite);
 	bite_test_print_result();
 	assert(bite.flags != 0);
 
 	/* TEST MISALIGNED (one byte) */
 	clearbuf(0xAA);
-	bite_config(&bite, 5, 2);
+	bite_begin(&bite, 5, 2);
 	bite_write(&bite, 0xFF);
 	bite_write(&bite, 0xFF);
-	/* bite_write(&bite, 0x56); */
+	bite_end(&bite);
 	bite_test_print_result();
 
-	bite_reset(&bite);
+	bite_begin(&bite, 5, 2);
 	assert(bite_read(&bite) == 0x03);
-
-	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
+	bite_end(&bite);
 
 	/* TEST MISALIGNED (multibyte) */
 	clearbuf(0xAA);
-	bite_config(&bite, 2, 16);
+	bite_begin(&bite, 2, 16);
 	bite_write(&bite, 0xF2);
 	bite_write(&bite, 0xAF);
-	/* bite_write(&bite, 0x56); */
+	bite_end(&bite);
 	bite_test_print_result();
 
-	bite_reset(&bite);
+	bite_begin(&bite, 2, 16);
 	assert(bite_read(&bite) == 0xF2);
 	assert(bite_read(&bite) == 0xAF);
-
-	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
+	bite_end(&bite);
 
 	/* TEST MISALIGNED (Ending) */
 	clearbuf(0xAA);
-	bite_config(&bite, 8, 9);
+	bite_begin(&bite, 8, 9);
 	bite_write(&bite, 0xF2);
 	bite_write(&bite, 0xAF);
-	/* bite_write(&bite, 0x56); */
+	bite_end(&bite);
 	bite_test_print_result();
 
-	bite_reset(&bite);
+	bite_begin(&bite, 8, 9);
 	assert(bite_read(&bite) == 0xF2);
 	assert(bite_read(&bite) == 0xAF >> 7);
-
-	/* print_binary(bite_mix_u8(0xAA, 4, 0xFF), 8); */
+	bite_end(&bite);
 
 	/* TEST UNDERFLOW */
-	bite_config(&bite, 16, 16);
+	bite_begin(&bite, 16, 16);
 	bite_write(&bite, 0x12);
+	bite_end(&bite);
+
 	bite_test_print_result();
-	bite_reset(&bite);
 	assert(bite.flags == BITE_FLAG_UNDERFLOW);
 }
 
@@ -128,31 +126,21 @@ int main()
 {
 	uint8_t res = 0;
 
-	/* uint8_t d[2] = {0x00, 0x00};
-	
-	uint8_t data = 0xFF;
-	uint8_t ofs  = 7;
-
-	BITE_COPY_U8(data >> ofs, d[0], ofs, 8 - ofs);
-	BITE_COPY_U8(data,        d[1],   0,     ofs);
-
-	print_binary(d[0], 8);
-	print_binary(d[1], 8); */
-
 	print_binary(res, 8);
 
-	clearbuf(0x00);
 	bite_init(&bite, buf/*, 8*/);
-	/* bite_config(&bite, 7, 6); */
-	bite_config(&bite, 1, 8);
+	
+	clearbuf(0x00);
+	bite_begin(&bite, 1, 8);
 	bite_write(&bite, 0xFF);
 	bite_test_print_result();
 	bite_test_print_result_binary();
 
-	bite_reset(&bite);
+	bite_rewind(&bite);
 	res = bite_read(&bite);
 	print_binary(res, 8);
 	assert(res == 0xFF);
+	bite_end(&bite);
 
 	bite_test();
 
