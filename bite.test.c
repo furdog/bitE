@@ -49,6 +49,8 @@ void bite_test_print_result_binary()
 
 void bite_test()
 {
+	uint8_t res = 0;
+
 	/* Trigger UBsan
 	 * volatile uint8_t x = 0xFF;
 	   volatile uint8_t y = 32;
@@ -119,15 +121,8 @@ void bite_test()
 
 	bite_test_print_result();
 	assert(bite.flags == BITE_FLAG_UNDERFLOW);
-}
 
-
-int main()
-{
-	uint8_t res = 0;
-
-	print_binary(res, 8);
-
+	/* TEST OTHER */
 	bite_init(&bite, buf/*, 8*/);
 	
 	clearbuf(0x00);
@@ -144,7 +139,34 @@ int main()
 	print_binary(res, 8);
 	assert(res == 0xFF);
 	bite_end(&bite);
+}
 
+int main()
+{
+	size_t idx;
+	size_t idx2;
+
+	bite_init(&bite, buf);
+	
+	idx  = 9;
+	idx2 = 9;
+	idx =  (idx  & 8) + (7 - (idx  % 8)); /* CAN DBC Moto  format */
+	idx2 = (idx2 & 8) +  8 - (idx2 % 8);  /* CAN DBC Intel format */
+	
+	clearbuf(0x00);
+	bite_begin(&bite, idx, 8);
+	bite_write(&bite, 0xFA);
+	bite_end(&bite);
+	bite_test_print_result();
+	bite_test_print_result_binary();
+
+	clearbuf(0x00);
+	bite_begin(&bite, idx2, 8);
+	bite_write(&bite, 0xFA);
+	bite_end(&bite);
+	bite_test_print_result();
+	bite_test_print_result_binary();
+	
 	bite_test();
 
 	return 0;
