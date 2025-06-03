@@ -83,6 +83,7 @@ void bite_test()
 	bite_write(&bite, 0xFF);
 	bite_end(&bite);
 	bite_test_print_result();
+	bite_test_print_result_binary();
 
 	bite_begin(&bite, 5, 2);
 	assert(bite_read(&bite) == 0x03);
@@ -91,14 +92,15 @@ void bite_test()
 	/* TEST MISALIGNED (multibyte) */
 	clearbuf(0xAA);
 	bite_begin(&bite, 2, 16);
-	bite_write(&bite, 0xF2);
-	bite_write(&bite, 0xAF);
+	bite_write(&bite, 0xFF);
+	bite_write(&bite, 0xFF);
 	bite_end(&bite);
 	bite_test_print_result();
+	bite_test_print_result_binary();
 
 	bite_begin(&bite, 2, 16);
-	assert(bite_read(&bite) == 0xF2);
-	assert(bite_read(&bite) == 0xAF);
+	assert(bite_read(&bite) == 0xFF);
+	assert(bite_read(&bite) == 0xFF);
 	bite_end(&bite);
 
 	/* TEST MISALIGNED (Ending) */
@@ -108,6 +110,7 @@ void bite_test()
 	bite_write(&bite, 0xAF);
 	bite_end(&bite);
 	bite_test_print_result();
+	bite_test_print_result_binary();
 
 	bite_begin(&bite, 8, 9);
 	assert(bite_read(&bite) == 0xF2);
@@ -125,7 +128,7 @@ void bite_test()
 	/* TEST OTHER */
 	bite_init(&bite, buf/*, 8*/);
 	
-	clearbuf(0x00);
+	clearbuf(0xAA);
 	bite_begin(&bite, 1, 8);
 	bite_write(&bite, 0xFF);
 	bite_set_flag(&bite, 35, true);
@@ -143,18 +146,16 @@ void bite_test()
 
 int main()
 {
-	size_t idx;
+	size_t idx1;
 	size_t idx2;
 
 	bite_init(&bite, buf);
 	
-	idx  = 9;
-	idx2 = 9;
-	idx =  (idx  & 8) + (7 - (idx  % 8)); /* CAN DBC Moto  format */
-	idx2 = (idx2 & 8) +  8 - (idx2 % 8);  /* CAN DBC Intel format */
+	idx1 = 29; /* CAN DBC Moto  format */
+	idx2 = 9; /* CAN DBC Intel format */
 	
 	clearbuf(0x00);
-	bite_begin(&bite, idx, 8);
+	bite_begin(&bite, idx1, 8);
 	bite_write(&bite, 0xFA);
 	bite_end(&bite);
 	bite_test_print_result();
