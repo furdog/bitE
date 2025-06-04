@@ -1,13 +1,20 @@
 
 #include <stdio.h>
 
+#define BITE_DEBUG
+
 void print_binary(unsigned int value, int bits) {
+	(void)value;
+	(void)bits;
+
+#ifndef BITE_DEBUG
 	int i;
 
 	for (i = bits - 1; i >= 0; i--) {
 		putchar((value & (1U << i)) ? '1' : '0');
 	}
 	putchar('\n');
+#endif
 }
 
 #include "bite.h"
@@ -23,6 +30,7 @@ void clearbuf(uint8_t val)
 
 void bite_test_print_result()
 {
+#ifndef BITE_DEBUG
 	int i;
 
 	for (i = 0; i < 8; i++) {
@@ -31,10 +39,12 @@ void bite_test_print_result()
 
 	printf("\n%s\n", bite.flags & BITE_FLAG_OVERFLOW ? "overflow" : "ok");
 	fflush(0);
+#endif
 }
 
 void bite_test_print_result_binary()
 {
+#ifndef BITE_DEBUG
 	int i;
 	int j;
 
@@ -45,6 +55,7 @@ void bite_test_print_result_binary()
 		putchar(' ');
 	}
 	putchar('\n');
+#endif
 }
 
 void bite_test()
@@ -60,7 +71,7 @@ void bite_test()
 	
 	/* TEST NORMAL */
 	clearbuf(0xAA);
-	bite_begin(&bite, 16, 16);
+	bite_begin(&bite, 15, 12);
 	bite_write(&bite, 0x12);
 	bite_write(&bite, 0x34);
 	bite_end(&bite);
@@ -146,27 +157,29 @@ void bite_test()
 
 int main()
 {
-	size_t idx1;
+	/*size_t idx1;
 	size_t idx2;
 
-	bite_init(&bite, buf);
+	bite_init(&bite, buf);*/
 	
-	idx1 = 29; /* CAN DBC Moto  format */
-	idx2 = 9; /* CAN DBC Intel format */
+	/*idx1 = 3;*/ /* CAN DBC Moto  format */
+	/*idx2 = 9;*/ /* CAN DBC Intel format */
 	
-	clearbuf(0x00);
-	bite_begin(&bite, idx1, 8);
+	/*clearbuf(0x00);
+	bite_begin(&bite, idx1, 3);
 	bite_write(&bite, 0xFA);
-	bite_end(&bite);
-	bite_test_print_result();
-	bite_test_print_result_binary();
+	bite_write(&bite, 0xFA);
+	bite_rewind(&bite);
+	bite_end(&bite);*/
+	/*bite_test_print_result();
+	bite_test_print_result_binary();*/
 
-	clearbuf(0x00);
+	/*clearbuf(0x00);
 	bite_begin(&bite, idx2, 8);
 	bite_write(&bite, 0xFA);
-	bite_end(&bite);
-	bite_test_print_result();
-	bite_test_print_result_binary();
+	bite_end(&bite);*/
+	/*bite_test_print_result();
+	bite_test_print_result_binary();*/
 	
 	bite_test();
 
