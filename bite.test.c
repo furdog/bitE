@@ -77,15 +77,15 @@ void bite_test()
 	assert(bite.flags != 0);
 
 	/* TEST MISALIGNED (one byte) */
-	clearbuf(0xAA);
-	bite_begin(&bite, 5, 2);
+	clearbuf(0x00);
+	bite_begin(&bite, 0, 2);
 	bite_write(&bite, 0xFF);
 	bite_write(&bite, 0xFF);
 	bite_end(&bite);
 	bite_test_print_result();
 	bite_test_print_result_binary();
 
-	bite_begin(&bite, 5, 2);
+	bite_begin(&bite, 0, 2);
 	assert(bite_read(&bite) == 0x03);
 	bite_end(&bite);
 
