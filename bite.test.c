@@ -30,21 +30,18 @@ void clearbuf(uint8_t val)
 
 void bite_test_print_result()
 {
-#ifndef BITE_DEBUG
 	int i;
 
 	for (i = 0; i < 8; i++) {
 		printf("0x%02X ", buf[i]);
 	}
+	putchar('\n');
 
-	printf("\n%s\n", bite.flags & BITE_FLAG_OVERFLOW ? "overflow" : "ok");
 	fflush(0);
-#endif
 }
 
 void bite_test_print_result_binary()
 {
-#ifndef BITE_DEBUG
 	int i;
 	int j;
 
@@ -55,7 +52,6 @@ void bite_test_print_result_binary()
 		putchar(' ');
 	}
 	putchar('\n');
-#endif
 }
 
 void bite_test()
@@ -157,22 +153,19 @@ void bite_test()
 
 int main()
 {
-	/*size_t idx1;
-	size_t idx2;
+	size_t idx;
 
-	bite_init(&bite, buf);*/
+	bite_init(&bite, buf);
 	
-	/*idx1 = 3;*/ /* CAN DBC Moto  format */
-	/*idx2 = 9;*/ /* CAN DBC Intel format */
-	
-	/*clearbuf(0x00);
-	bite_begin(&bite, idx1, 3);
-	bite_write(&bite, 0xFA);
-	bite_write(&bite, 0xFA);
-	bite_rewind(&bite);
-	bite_end(&bite);*/
-	/*bite_test_print_result();
-	bite_test_print_result_binary();*/
+	idx = 6;
+
+	clearbuf(0x00);
+	bite_begin(&bite, idx, 16);
+	bite_write(&bite, 0xAB);
+	bite_write(&bite, 0xCD);
+	bite_end(&bite);
+	bite_test_print_result();
+	bite_test_print_result_binary();
 
 	/*clearbuf(0x00);
 	bite_begin(&bite, idx2, 8);
@@ -180,8 +173,8 @@ int main()
 	bite_end(&bite);*/
 	/*bite_test_print_result();
 	bite_test_print_result_binary();*/
-	
-	bite_test();
+
+	/* bite_test(); */
 
 	return 0;
 }
