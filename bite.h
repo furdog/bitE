@@ -349,13 +349,16 @@ void bite_write(struct bite *self, uint8_t data)
 		_bite_debug_str(self, "");
 		_bite_debug_str(self, "INFO: chunk is 8bit aligned");
 		if (chunk_len < 8U) {
+			uint8_t mask = (0xFFU >> chunk_len);
+
 			_bite_debug_str(self, "INFO: chunk end is short");
 			_bite_debug_str(self, "");
 			_bite_debug_int(self, "chunk_len", chunk_len);
 
 			_bite_debug_bin(self, "destination data ", d[0]);
-			d[0] &= (0xFFU >> chunk_len);
-			d[0]  = data << (8U - chunk_len);
+			d[0] &= mask;
+			_bite_debug_bin(self, "mask             ", mask);
+			d[0] |= data << (8U - chunk_len);
 			_bite_debug_bin(self, "write result     ", d[0]);
 		} else {
 			_bite_debug_str(self, "");
