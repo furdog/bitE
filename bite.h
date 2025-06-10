@@ -45,6 +45,17 @@ struct bite {
  * DEBUG
  *****************************************************************************/
 #ifdef BITE_DEBUG
+#define BITE_RED    "\x1b" "[1;31m"
+#define BITE_YELLOW "\x1b" "[1;33m"
+#define BITE_ORANGE "\x1b" "[38;5;208m"
+#define BITE_WHITE  "\x1b" "[1;37m"
+#define BITE_GREEN  "\x1b" "[1;32m"
+#define BITE_CRST    "\x1b" "[0m"
+
+#define BITE_ERR  BITE_RED    "ERR: "  BITE_CRST
+#define BITE_WARN BITE_ORANGE "WARN: " BITE_CRST
+#define BITE_INFO BITE_GREEN  "INFO: " BITE_CRST
+
 void _bite_debug_nest(struct bite *self, int8_t level)
 {
 	self->nest += level;
@@ -78,8 +89,7 @@ void _bite_debug_flag(struct bite *self, uint8_t flag)
 
 	if (self->debug) {
 		_bite_debug_nest_apply(self);
-		(void)printf("bite_set_flag (ctx=%p, %s)\n", (void *)&self,
-		flag_name);
+		(void)printf("self->flag |= %s\n", flag_name);
 	}
 }
 
@@ -87,7 +97,7 @@ void _bite_debug_push(struct bite *self, const char *name)
 {
 	if (self->debug) {
 		_bite_debug_nest_apply(self);
-		(void)printf("%s(ctx=%p)\n", name, (void *)&self);
+		(void)printf(BITE_WHITE "%s\n" BITE_CRST, name);
 
 		_bite_debug_nest(self, 1);
 	}
@@ -208,7 +218,8 @@ uint8_t *_bite_get_dst_buf(struct bite *self, uint8_t *chunk_len)
 	_bite_debug_push(self, "_bite_get_dst_buf");
 
 	if (self->_iter_bits >= self->_len_bits) {
-		_bite_debug_str(self, "ERR: Attempt to read out of bounds!");
+		_bite_debug_str(self,
+				BITE_ERR"Attempt to read out of bounds!");
 		self->flags |= BITE_FLAG_OVERFLOW;
 		_bite_debug_flag(self, BITE_FLAG_OVERFLOW);
 	/* Return pointer to data if everything is ok */
@@ -259,7 +270,7 @@ void bite_init(struct bite *self, uint8_t *buf)
 	self->nest  = 0;
 #endif
 	_bite_debug_push(self, "bite_init");
-	_bite_debug_str(self, "WARN: debug mode is activated! This "
+	_bite_debug_str(self, BITE_WARN"debug mode is activated! This "
 			      "may cause serious performance impact!");
 	_bite_debug_pop(self);
 }
@@ -273,7 +284,8 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 
 	if (self->_iter_bits < self->_len_bits) {
 		self->flags |= BITE_FLAG_UNDERFLOW;
-		_bite_debug_str(self, "ERR: Previous operation unfinished!");
+		_bite_debug_str(self, 
+				BITE_ERR"Previous operation unfinished!");
 		_bite_debug_flag(self, BITE_FLAG_UNDERFLOW);
 	} else {
 		self->flags &= ~BITE_FLAG_UNDERFLOW;
@@ -299,7 +311,8 @@ void bite_end(struct bite *self)
 
 	if (self->_iter_bits < self->_len_bits) {
 		self-> flags |= BITE_FLAG_UNDERFLOW;
-		_bite_debug_str(self, "ERR: Previous operation unfinished!");
+		_bite_debug_str(self,
+				BITE_ERR"Previous operation unfinished!");
 		_bite_debug_flag(self, BITE_FLAG_UNDERFLOW);
 	}
 
@@ -344,14 +357,15 @@ void bite_write(struct bite *self, uint8_t data)
 
 	if (d == NULL) {
 		/* Nothing to do here */
-		_bite_debug_str(self, "ERR: destination data fetch failed!");
+		_bite_debug_str(self,
+				BITE_ERR"destination data fetch failed!");
 	} else if (ofs == 0U) {
 		_bite_debug_str(self, "");
-		_bite_debug_str(self, "INFO: chunk is 8bit aligned");
+		_bite_debug_str(self, BITE_INFO"chunk is 8bit aligned");
 		if (chunk_len < 8U) {
 			uint8_t mask = (0xFFU >> chunk_len);
 
-			_bite_debug_str(self, "INFO: chunk end is short");
+			_bite_debug_str(self, BITE_INFO"chunk end is short");
 			_bite_debug_str(self, "");
 			_bite_debug_int(self, "chunk_len", chunk_len);
 
@@ -390,7 +404,7 @@ void bite_write(struct bite *self, uint8_t data)
 
 		/* MSB goes into first byte */
 		_bite_debug_str(self, "");
-		_bite_debug_str(self, "INFO: chunk is fragmented");
+		_bite_debug_str(self, BITE_INFO"chunk is fragmented");
 		_bite_debug_str(self, "");
 
 		_bite_debug_int(self, "MSB len       ", msb_len);
@@ -437,7 +451,7 @@ void bite_write(struct bite *self, uint8_t data)
 		uint8_t dst;
 
 		_bite_debug_str(self, "");
-		_bite_debug_str(self, "INFO: chunk is a bitfield");
+		_bite_debug_str(self, BITE_INFO"chunk is a bitfield");
 		_bite_debug_str(self, "");
 		_bite_debug_bin(self, "mask       ", mask);
 		
@@ -487,12 +501,12 @@ uint8_t bite_read(struct bite *self)
 
 	if (d == NULL) {
 		/* Nothing to do here */
-		_bite_debug_str(self, "ERR: source data fetch failed!");
+		_bite_debug_str(self, BITE_ERR"source data fetch failed!");
 	} else if (ofs == 0U) {
 		_bite_debug_str(self, "");
-		_bite_debug_str(self, "INFO: chunk is 8bit aligned");
+		_bite_debug_str(self, BITE_INFO"chunk is 8bit aligned");
 		if (chunk_len < 8U) {
-			_bite_debug_str(self, "INFO: chunk end is short");
+			_bite_debug_str(self, BITE_INFO"chunk end is short");
 			_bite_debug_str(self, "");
 			_bite_debug_int(self, "chunk_len  ", chunk_len);
 			
@@ -528,7 +542,7 @@ uint8_t bite_read(struct bite *self)
 
 		/* MSB goes into first byte */
 		_bite_debug_str(self, "");
-		_bite_debug_str(self, "INFO: chunk is fragmented");
+		_bite_debug_str(self, BITE_INFO"chunk is fragmented");
 		_bite_debug_str(self, "");
 
 		_bite_debug_int(self, "MSB len    ", msb_len);
@@ -566,7 +580,7 @@ uint8_t bite_read(struct bite *self)
 		uint8_t src;
 
 		_bite_debug_str(self, "");
-		_bite_debug_str(self, "INFO: chunk is a bitfield");
+		_bite_debug_str(self, BITE_INFO"chunk is a bitfield");
 		_bite_debug_str(self, "");
 		_bite_debug_bin(self, "mask       ", mask);
 		
