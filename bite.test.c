@@ -1,8 +1,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#define BITE_DEBUG
-
 void print_binary(unsigned int value, int bits) {
 #ifndef BITE_DEBUG
 	int i;

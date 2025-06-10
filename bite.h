@@ -2,6 +2,8 @@
  * @file bite.h
  * @brief Bit-wise read/write operations with debugging.
  */
+#ifndef BITE_GUARD
+#define BITE_GUARD
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -56,7 +58,6 @@ struct bite {
 /******************************************************************************
  * DEBUG
  *****************************************************************************/
-#ifdef BITE_DEBUG
 #define BITE_RED    "\x1b" "[1;31m"
 #define BITE_YELLOW "\x1b" "[1;33m"
 #define BITE_ORANGE "\x1b" "[38;5;208m"
@@ -68,6 +69,7 @@ struct bite {
 #define BITE_WARN BITE_ORANGE "WARN: " BITE_CRST
 #define BITE_INFO BITE_GREEN  "INFO: " BITE_CRST
 
+#ifdef BITE_DEBUG
 void _bite_debug_nest(struct bite *self, int8_t level)
 {
 	self->nest += level;
@@ -639,3 +641,5 @@ uint8_t bite_read(struct bite *self)
 
 	return r;
 }
+
+#endif /* BITE_GUARD */
