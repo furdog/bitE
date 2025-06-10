@@ -276,7 +276,7 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 		_bite_debug_str(self, "ERR: Previous operation unfinished!");
 		_bite_debug_flag(self, BITE_FLAG_UNDERFLOW);
 	} else {
-		self->flags = 0U;
+		self->flags &= ~BITE_FLAG_UNDERFLOW;
 	}
 
 	self->_ofs_bits = ofs_bits;
