@@ -1,3 +1,8 @@
+/**
+ * @file bite.h
+ * @brief Bit-wise read/write operations with debugging.
+ */
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
@@ -5,39 +10,46 @@
 /******************************************************************************
  * CLASS
  *****************************************************************************/
+ 
+/**
+ * @enum bite_order
+ * @brief Byte order options.
+ */
 enum bite_order
 {
-	BITE_ORDER_LIL_ENDIAN = 0,
-	BITE_ORDER_BIG_ENDIAN = 1
+	BITE_ORDER_LIL_ENDIAN = 0, /**< Little endian */
+	BITE_ORDER_BIG_ENDIAN = 1  /**< Big endian */
 };
 
+/**
+ * @enum bite_flags
+ * @brief Status flags.
+ */
 enum bite_flags {
-	BITE_FLAG_NONE,
-	
-	/* Read or write operation has exceed configured boundary */
-	BITE_FLAG_OVERFLOW    = 1U,
-	
-	/* Configure call during unfinished read or write operation */
-	BITE_FLAG_UNDERFLOW   = 2U
+	BITE_FLAG_NONE,           /**< No flag */
+	BITE_FLAG_OVERFLOW  = 1U, /**< Exceeded boundary */
+	BITE_FLAG_UNDERFLOW = 2U  /**< Unfinished operation */
 };
 
+/**
+ * @struct bite
+ * @brief Bit-wise I/O context.
+ */
 struct bite {
 	/* Config */
-	uint8_t *_data;
+	uint8_t *_data; /**< Data buffer */
 
-	size_t _ofs_bits;
-	size_t _len_bits;
+	size_t _ofs_bits; /**< Start bit offset */
+	size_t _len_bits; /**< Total bit length */
 
 	/* Runtime */
-	size_t  _iter_bits;
-
-	uint8_t  flags;
-	
-	uint8_t _order;
+	size_t  _iter_bits; /**< Iteration offset */
+	uint8_t  flags;     /**< Status flags */
+	uint8_t _order;     /**< Byte order */
 
 #ifdef BITE_DEBUG
-	bool debug;
-	int8_t nest;
+	bool debug;  /**< Debug mode flag */
+	int8_t nest; /**< Debug nesting level */
 #endif
 };
 
@@ -250,6 +262,11 @@ uint8_t *_bite_get_dst_buf(struct bite *self, uint8_t *chunk_len)
 /******************************************************************************
  * PUBLIC
  *****************************************************************************/
+/**
+ * @brief Initialize bite context.
+ * @param self Context
+ * @param buf  Data buffer
+ */
 void bite_init(struct bite *self, uint8_t *buf)
 {
 	/* Config */
@@ -260,9 +277,7 @@ void bite_init(struct bite *self, uint8_t *buf)
 
 	/* Runtime */
 	self->_iter_bits = 0U;
-
 	self-> flags = 0U;
-	
 	self->_order = BITE_ORDER_BIG_ENDIAN;
 
 #ifdef BITE_DEBUG
@@ -275,6 +290,13 @@ void bite_init(struct bite *self, uint8_t *buf)
 	_bite_debug_pop(self);
 }
 
+/**
+ * @brief Begin bit-wise operation.
+ * @param self     Context
+ * @param ofs_bits Bit offset
+ * @param len_bits Bit length
+ * @param order    Byte order
+ */
 void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 		enum bite_order order)
 {
@@ -305,6 +327,10 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 	_bite_debug_pop(self);
 }
 
+/**
+ * @brief End current operation.
+ * @param self Context
+ */
 void bite_end(struct bite *self)
 {	
 	_bite_debug_push(self, "bite_end");
@@ -320,6 +346,10 @@ void bite_end(struct bite *self)
 	_bite_debug_pop(self);
 }
 
+/**
+ * @brief Rewind iteration.
+ * @param self Context
+ */
 void bite_rewind(struct bite *self)
 {
 	_bite_debug_push(self, "bite_rewind");
@@ -329,6 +359,11 @@ void bite_rewind(struct bite *self)
 	_bite_debug_pop(self);
 }
 
+/**
+ * @brief Write 8-bit or less data.
+ * @param self Context
+ * @param data Data to write
+ */
 void bite_write(struct bite *self, uint8_t data)
 {
 	/* Offset from LSB */
@@ -472,6 +507,11 @@ void bite_write(struct bite *self, uint8_t data)
 	_bite_debug_pop(self);
 }
 
+/**
+ * @brief Read 8-bit or less data.
+ * @param self Context
+ * @return Data read
+ */
 uint8_t bite_read(struct bite *self)
 {
 	uint8_t r = 0;
