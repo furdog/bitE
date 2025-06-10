@@ -67,7 +67,7 @@ void bite_test()
 	
 	/* TEST NORMAL */
 	clearbuf(0xAA);
-	bite_begin(&bite, 15, 12);
+	bite_begin(&bite, 15, 12, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0x12);
 	bite_write(&bite, 0x34);
 	bite_end(&bite);
@@ -75,7 +75,7 @@ void bite_test()
 	assert(bite.flags == 0);
 
 	/* TEST OVERFLOW */
-	bite_begin(&bite, 16, 16);
+	bite_begin(&bite, 16, 16, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0x56);
 	bite_write(&bite, 0x78);
 	bite_write(&bite, 0x90);
@@ -85,47 +85,47 @@ void bite_test()
 
 	/* TEST MISALIGNED (one byte) */
 	clearbuf(0x00);
-	bite_begin(&bite, 0, 2);
+	bite_begin(&bite, 0, 2, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0xFF);
 	bite_write(&bite, 0xFF);
 	bite_end(&bite);
 	bite_test_print_result();
 	bite_test_print_result_binary();
 
-	bite_begin(&bite, 0, 2);
+	bite_begin(&bite, 0, 2, BITE_ORDER_BIG_ENDIAN);
 	assert(bite_read(&bite) == 0x03);
 	bite_end(&bite);
 
 	/* TEST MISALIGNED (multibyte) */
 	clearbuf(0xAA);
-	bite_begin(&bite, 2, 16);
+	bite_begin(&bite, 2, 16, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0xFF);
 	bite_write(&bite, 0xFF);
 	bite_end(&bite);
 	bite_test_print_result();
 	bite_test_print_result_binary();
 
-	bite_begin(&bite, 2, 16);
+	bite_begin(&bite, 2, 16, BITE_ORDER_BIG_ENDIAN);
 	assert(bite_read(&bite) == 0xFF);
 	assert(bite_read(&bite) == 0xFF);
 	bite_end(&bite);
 
 	/* TEST MISALIGNED (Ending) */
 	clearbuf(0xAA);
-	bite_begin(&bite, 8, 9);
+	bite_begin(&bite, 8, 9, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0xF2);
 	bite_write(&bite, 0xAF);
 	bite_end(&bite);
 	bite_test_print_result();
 	bite_test_print_result_binary();
 
-	bite_begin(&bite, 8, 9);
+	bite_begin(&bite, 8, 9, BITE_ORDER_BIG_ENDIAN);
 	assert(bite_read(&bite) == 0xF2);
 	assert(bite_read(&bite) == 0xAF >> 7);
 	bite_end(&bite);
 
 	/* TEST UNDERFLOW */
-	bite_begin(&bite, 16, 16);
+	bite_begin(&bite, 16, 16, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0x12);
 	bite_end(&bite);
 
@@ -136,11 +136,8 @@ void bite_test()
 	bite_init(&bite, buf/*, 8*/);
 	
 	clearbuf(0xAA);
-	bite_begin(&bite, 1, 8);
+	bite_begin(&bite, 1, 8, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0xFF);
-	bite_set_flag(&bite, 35, true);
-	assert(bite_get_flag(&bite, 35) == true);
-	assert(bite_get_flag(&bite, 36) == false);
 	bite_test_print_result();
 	bite_test_print_result_binary();
 
@@ -153,19 +150,18 @@ void bite_test()
 
 int main()
 {
-	size_t idx;
-
 	bite_init(&bite, buf);
 	
-	idx = 6;
-
 	clearbuf(0x00);
-	bite_begin(&bite, idx, 16);
-	bite_write(&bite, 0xAB);
-	bite_write(&bite, 0xCD);
+	bite_begin(&bite, 0, 8, BITE_ORDER_LIL_ENDIAN);
+	bite_write(&bite, 0xAA);
 	bite_end(&bite);
 	bite_test_print_result();
 	bite_test_print_result_binary();
+
+	bite_begin(&bite, 0, 8, BITE_ORDER_LIL_ENDIAN);
+	assert(bite_read(&bite) == 0xAA);
+	bite_end(&bite);
 
 	/*clearbuf(0x00);
 	bite_begin(&bite, idx2, 8);
