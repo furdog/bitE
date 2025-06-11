@@ -149,6 +149,15 @@ gcc -DBITE_DEBUG ...
 
 ---
 
+## TODO
+
+- `bite_begin` does not check source buffer bounds, thus may cause buffer overflow
+- `bite_read` and `bite_write` should never be used in the same context
+- Some variables unnecessarily calculated with every read/write call (OPTIMIZE)
+- Tests and use cases should be more descriptive, as well as the README
+
+---
+
 ## Contributing
 
 Bug reports, suggestions, and improvements are welcome!
