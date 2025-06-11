@@ -24,7 +24,7 @@ void bite_test_assert(bool assert, const char *str, int line)
 		       bite_test_name, bite_test_variant);
 
 		fflush(0);
-		exit(0);
+		exit(1);
 	}
 }
 
@@ -172,27 +172,29 @@ void bite_test_use_cases()
 	BITE_TEST_HIGHLIGHT_SECTION;
 	memset((void *)buf, 0, 8);
 
-	/* Test multibyte case (write multiple bytes into `buf`) */
-	bite_begin(&bite, 7, 24, BITE_ORDER_BIG_ENDIAN);
+	/* Test multibyte case (write multiple bytes into `buf`)
+	 * We only write 20 bits, so the last byte will write 4 LSB bits */
+	bite_begin(&bite, 7, 20, BITE_ORDER_BIG_ENDIAN);
 
 	bite_write(&bite, 0xAB);
 	bite_write(&bite, 0xCD);
-	bite_write(&bite, 0xEF);
+	bite_write(&bite, 0xEF); /* MSB part 0xE* will be masked! */
 	bite_end(&bite);
 
 	bite_test_print_buf(buf);
 
-	bite_begin(&bite, 7, 24, BITE_ORDER_BIG_ENDIAN);
+	bite_begin(&bite, 7, 20, BITE_ORDER_BIG_ENDIAN);
 	BITE_TEST_ASSERT(bite_read(&bite) == 0xAB);
 	BITE_TEST_ASSERT(bite_read(&bite) == 0xCD);
-	BITE_TEST_ASSERT(bite_read(&bite) == 0xEF);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0x0F); /* MSB is masked */
 	bite_end(&bite);
 
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;
 	memset((void *)buf, 0, 8);
 
-	/* Test with 3 bit offset from MSB (7-3=4) */
+	/* Test with 3 bit offset from MSB (7-3=4) 
+	 * Data will be fragmented inside `buf` in two bytes */
 	bite_begin(&bite, 4, 8, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0xAB);
 	bite_end(&bite);
@@ -201,6 +203,22 @@ void bite_test_use_cases()
 
 	bite_begin(&bite, 4, 8, BITE_ORDER_BIG_ENDIAN);
 	BITE_TEST_ASSERT(bite_read(&bite) == 0xAB);
+	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	/* Test with 3 bit offset from MSB (7-3=4) 
+	 * Write bitfield of 3 bits */
+	bite_begin(&bite, 4, 3, BITE_ORDER_BIG_ENDIAN);
+	bite_write(&bite, 0xFF); /* MSB will be masked for remaining bits */
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 4, 3, BITE_ORDER_BIG_ENDIAN);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0x07); /* MSB is masked */
 	bite_end(&bite);
 
 	/* TODO more use cases */
