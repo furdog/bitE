@@ -57,6 +57,9 @@ struct bite {
 	uint8_t  flags;     /**< Status flags */
 	uint8_t _order;     /**< Byte order */
 
+	/* Runtime (lazy evaluation) */
+	uint8_t _ofs; /**< Offset from LSB inside every byte */
+
 #ifdef BITE_DEBUG
 	bool debug;  /**< Debug mode flag */
 	int8_t nest; /**< Debug nesting level */
@@ -291,6 +294,7 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
  * @brief Initialize bite context.
  * @param self Context
  * @param buf  Data buffer
+ * @param size Data buffer size (in bytes)
  */
 void bite_init(struct bite *self, uint8_t *buf, size_t size)
 {
@@ -303,8 +307,11 @@ void bite_init(struct bite *self, uint8_t *buf, size_t size)
 
 	/* Runtime */
 	self->_iter_bits = 0U;
-	self-> flags = 0U;
-	self->_order = BITE_ORDER_BIG_ENDIAN;
+	self-> flags     = 0U;
+	self->_order     = BITE_ORDER_BIG_ENDIAN;
+
+	/* Runtime (lazy evaluation) */
+	self->_ofs = 0;
 
 #ifdef BITE_DEBUG
 	self->debug = true;
@@ -352,7 +359,14 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 		self->flags &= ~BITE_FLAG_UNDERFLOW;
 	}
 
-	/* TODO Lazy evaluations */
+	/* TODO more Lazy evaluations */
+
+	/* Calculate offset inside every byte */
+	if (order == BITE_ORDER_BIG_ENDIAN) {
+		self->_ofs = (ofs_bits + 1U) % 8U;
+	} else {
+		self->_ofs = (ofs_bits + len_bits) % 8U;
+	}
 
 	/* TODO We should never go out of buffer bounds */
 	/*if (ofs_bits + len_bits) {
@@ -409,27 +423,18 @@ void bite_rewind(struct bite *self)
  */
 void bite_write(struct bite *self, uint8_t data)
 {
-	/* Offset from LSB */
-	uint8_t ofs;
-
 	/* Data chunk */
 	uint8_t chunk_len;
 	uint8_t *d;
 
 	_bite_debug_push(self, "bite_write");
 
-	if (self->_order == (uint8_t)BITE_ORDER_BIG_ENDIAN) {
-		ofs = (self->_ofs_bits + 1U) % 8U;
-	} else {
-		ofs = (self->_ofs_bits + (self->_len_bits % 8U)) % 8U;
-	}
-
 	/* Get destination data buffer */
 	d = _bite_get_buf(self, &chunk_len);
 	
 	if (d != NULL) {
 		_bite_debug_bin(self, "source data      ", data);
-		_bite_debug_int(self, "offset (from LSB)", ofs);
+		_bite_debug_int(self, "offset (from LSB)", self->_ofs);
 		_bite_debug_int(self, "bits to write    ", chunk_len);
 	}
 
@@ -437,7 +442,7 @@ void bite_write(struct bite *self, uint8_t data)
 		/* Nothing to do here */
 		_bite_debug_str(self,
 				BITE_ERR"destination data fetch failed!");
-	} else if (ofs == 0U) {
+	} else if (self->_ofs == 0U) {
 		_bite_debug_str(self, "");
 		_bite_debug_str(self, BITE_INFO"chunk is 8bit aligned");
 		if (chunk_len < 8U) {
@@ -458,12 +463,12 @@ void bite_write(struct bite *self, uint8_t data)
 			d[0] = data;
 			_bite_debug_bin(self, "write result     ", d[0]);
 		}
-	} else if (chunk_len > ofs) {
+	} else if (chunk_len > self->_ofs) {
 		/* Data is split into MSB and LSB parts */
 		uint8_t *msb = &d[0];
 		uint8_t *lsb;
 
-		uint8_t msb_len = ofs;
+		uint8_t msb_len = self->_ofs;
 		uint8_t lsb_len = chunk_len - msb_len;
 
 		/* Masks to bound our data */
@@ -485,44 +490,44 @@ void bite_write(struct bite *self, uint8_t data)
 		_bite_debug_str(self, BITE_INFO"chunk is fragmented");
 		_bite_debug_str(self, "");
 
-		_bite_debug_int(self, "MSB len       ", msb_len);
-		_bite_debug_bin(self, "MSB mask      ", mask_msb);
+		_bite_debug_int(self, "MSB len     ", msb_len);
+		_bite_debug_bin(self, "MSB mask    ", mask_msb);
 		
 		dst = (*msb & mask_msb);
-		_bite_debug_bin(self, "MSB data   ", *msb);
-		_bite_debug_bin(self, "MSB masked ", dst);
+		_bite_debug_bin(self, "MSB data    ", *msb);
+		_bite_debug_bin(self, "MSB masked  ", dst);
 		
 		src = (data >> lsb_len);
-		_bite_debug_bin(self, "src data      ", data);
-		_bite_debug_bin(self, "src shifted   ", src);
+		_bite_debug_bin(self, "src data    ", data);
+		_bite_debug_bin(self, "src shifted ", src);
 		src &= (uint8_t)~mask_msb;
-		_bite_debug_bin(self, "src masked    ", src);
+		_bite_debug_bin(self, "src masked  ", src);
 
 		*msb = dst | src;
-		_bite_debug_bin(self, "result (MSB)  ", *msb);
+		_bite_debug_bin(self, "result (MSB)", *msb);
 
 		_bite_debug_str(self, "");
 
 		/* LSB goes into second byte */
-		_bite_debug_int(self, "LSB len       ", lsb_len);
-		_bite_debug_bin(self, "LSB mask      ", mask_lsb);
+		_bite_debug_int(self, "LSB len     ", lsb_len);
+		_bite_debug_bin(self, "LSB mask    ", mask_lsb);
 		
 		dst = (*lsb & mask_lsb);
-		_bite_debug_bin(self, "LSB data   ", *lsb);
-		_bite_debug_bin(self, "LSB masked ", dst);
+		_bite_debug_bin(self, "LSB data    ", *lsb);
+		_bite_debug_bin(self, "LSB masked  ", dst);
 		
 		src = (data << (8U - lsb_len));
-		_bite_debug_bin(self, "src data      ", data);
-		_bite_debug_bin(self, "src shifted   ", src);
+		_bite_debug_bin(self, "src data    ", data);
+		_bite_debug_bin(self, "src shifted ", src);
 		src &= (uint8_t)~mask_lsb;
-		_bite_debug_bin(self, "src masked    ", src);
+		_bite_debug_bin(self, "src masked  ", src);
 		
 		*lsb = dst | src;
-		_bite_debug_bin(self, "result (LSB)  ", *lsb);
+		_bite_debug_bin(self, "result (LSB)", *lsb);
 	} else {
 		/* Data fits into one byte */
-		uint8_t mask = (0xFFU <<              ofs) ^
-			       (0xFFU << (ofs - chunk_len));
+		uint8_t mask = (0xFFU <<              self->_ofs) ^
+			       (0xFFU << (self->_ofs - chunk_len));
 
 		/* Temporary variables */
 		uint8_t src;
@@ -537,7 +542,7 @@ void bite_write(struct bite *self, uint8_t data)
 		_bite_debug_bin(self, "dst data   ", d[0]);
 		_bite_debug_bin(self, "dst masked ", dst);
 		
-		src = data << (ofs - chunk_len);
+		src = data << (self->_ofs - chunk_len);
 		_bite_debug_bin(self, "src data   ", data);
 		_bite_debug_bin(self, "src shifted", src);
 		src &= mask;
@@ -559,33 +564,24 @@ uint8_t bite_read(struct bite *self)
 {
 	uint8_t r = 0;
 
-	/* Offset from LSB */
-	uint8_t ofs;
-
 	/* Data chunk */
 	uint8_t chunk_len;
 	uint8_t *d;
 
 	_bite_debug_push(self, "bite_read");
 
-	if (self->_order == (uint8_t)BITE_ORDER_BIG_ENDIAN) {
-		ofs = (self->_ofs_bits + 1U) % 8U;
-	} else {
-		ofs = (self->_ofs_bits + (self->_len_bits % 8U)) % 8U;
-	}
-
 	/* Get destination data buffer */
 	d = _bite_get_buf(self, &chunk_len);
 	
 	if (d != NULL) {
-		_bite_debug_int(self, "offset (from LSB)", ofs);
+		_bite_debug_int(self, "offset (from LSB)", self->_ofs);
 		_bite_debug_int(self, "bits to read     ", chunk_len);
 	}
 
 	if (d == NULL) {
 		/* Nothing to do here */
 		_bite_debug_str(self, BITE_ERR"source data fetch failed!");
-	} else if (ofs == 0U) {
+	} else if (self->_ofs == 0U) {
 		_bite_debug_str(self, "");
 		_bite_debug_str(self, BITE_INFO"chunk is 8bit aligned");
 		if (chunk_len < 8U) {
@@ -602,12 +598,12 @@ uint8_t bite_read(struct bite *self)
 			r = d[0];
 			_bite_debug_bin(self, "read result", r);
 		}
-	} else if (chunk_len > ofs) {
+	} else if (chunk_len > self->_ofs) {
 		/* Data is split into MSB and LSB parts */
 		uint8_t *msb = &d[0];
 		uint8_t *lsb;
 
-		uint8_t msb_len = ofs;
+		uint8_t msb_len = self->_ofs;
 		uint8_t lsb_len = chunk_len - msb_len;
 
 		/* Masks to bound our data */
@@ -656,8 +652,8 @@ uint8_t bite_read(struct bite *self)
 		_bite_debug_bin(self, "result     ", r);
 	} else {
 		/* Data fits into one byte */
-		uint8_t mask = (0xFFU <<              ofs) ^
-			       (0xFFU << (ofs - chunk_len));
+		uint8_t mask = (0xFFU <<              self->_ofs) ^
+			       (0xFFU << (self->_ofs - chunk_len));
 
 		/* Temporary variables */
 		uint8_t src;
@@ -671,7 +667,7 @@ uint8_t bite_read(struct bite *self)
 		_bite_debug_bin(self, "src data   ", d[0]);
 		_bite_debug_bin(self, "src masked ", src);
 
-		src = src >> (ofs - chunk_len);
+		src = src >> (self->_ofs - chunk_len);
 		_bite_debug_bin(self, "src shifted", src);
 		
 		r |= src;
