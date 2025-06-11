@@ -35,7 +35,9 @@ enum bite_order
 enum bite_flags {
 	BITE_FLAG_NONE,           /**< No flag */
 	BITE_FLAG_OVERFLOW  = 1U, /**< Exceeded boundary */
-	BITE_FLAG_UNDERFLOW = 2U  /**< Unfinished operation */
+	BITE_FLAG_UNDERFLOW = 2U, /**< Unfinished operation */
+	BITE_FLAG_UNDEFINED = 4U, /**< Operation behaviour is undefined */
+	BITE_FLAG_MEMORY    = 8U  /**< Operation may cause buffer overflow */
 };
 
 /**
@@ -44,7 +46,8 @@ enum bite_flags {
  */
 struct bite {
 	/* Config */
-	uint8_t *_data; /**< Data buffer */
+	uint8_t *_data;      /**< Data buffer */
+	size_t   _data_size; /**< Data buffer size in bytes */
 
 	size_t _ofs_bits; /**< Start bit offset */
 	size_t _len_bits; /**< Total bit length */
@@ -96,14 +99,24 @@ void _bite_debug_nest_apply(struct bite *self)
 void _bite_debug_flag(struct bite *self, uint8_t flag)
 {
 	const char *flag_names[] = {"BITE_FLAG_NONE", "BITE_FLAG_OVERFLOW",
-				   "BITE_FLAG_UNDERFLOW", "BITE_FLAG_UNKNOWN"};
+				    "BITE_FLAG_UNDERFLOW",
+				    "BITE_FLAG_UNDEFINED", "BITE_FLAG_MEMORY",
+				    "BITE_FLAG_UNKNOWN"};
 
 	const char *flag_name = NULL;
 
-	if (flag <= 2U) {
-		flag_name = flag_names[flag];
-	} else {
+	if (flag == (uint8_t)BITE_FLAG_NONE) {
+		flag_name = flag_names[0];
+	} else if (flag == (uint8_t)BITE_FLAG_OVERFLOW) {
+		flag_name = flag_names[1];
+	} else if (flag == (uint8_t)BITE_FLAG_UNDERFLOW) {
+		flag_name = flag_names[2];
+	} else if (flag == (uint8_t)BITE_FLAG_UNDEFINED) {
 		flag_name = flag_names[3];
+	} else if (flag == (uint8_t)BITE_FLAG_MEMORY) {
+		flag_name = flag_names[4];
+	} else {
+		flag_name = flag_names[5];
 	}
 
 	if (self->debug) {
@@ -236,9 +249,13 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 	
 	_bite_debug_push(self, "_bite_get_buf");
 
-	if (self->_iter_bits >= self->_len_bits) {
+	if ((self->flags & ((uint8_t)BITE_FLAG_UNDEFINED |
+	                    (uint8_t)BITE_FLAG_MEMORY    )) > 0U) {
+			_bite_debug_str(self,
+				BITE_ERR"operation is undefined!");
+	} else if (self->_iter_bits >= self->_len_bits) {
 		_bite_debug_str(self,
-				BITE_ERR"Attempt to read out of bounds!");
+				BITE_ERR"attempt to read out of bounds!");
 		self->flags |= BITE_FLAG_OVERFLOW;
 		_bite_debug_flag(self, BITE_FLAG_OVERFLOW);
 	/* Return pointer to data if everything is ok */
@@ -269,15 +286,17 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 /******************************************************************************
  * PUBLIC
  *****************************************************************************/
+
 /**
  * @brief Initialize bite context.
  * @param self Context
  * @param buf  Data buffer
  */
-void bite_init(struct bite *self, uint8_t *buf)
+void bite_init(struct bite *self, uint8_t *buf, size_t size)
 {
 	/* Config */
-	self->_data = buf;
+	self->_data      = buf;
+	self->_data_size = size;
 
 	self->_ofs_bits = 0U;
 	self->_len_bits = 0U;
@@ -309,22 +328,39 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 {
 	_bite_debug_push(self, "bite_begin");
 
-	assert(len_bits > 0U);
+	_bite_debug_int(self, "ofs_bits", ofs_bits);
+	_bite_debug_int(self, "len_bits", len_bits);
+	_bite_debug_str(self, "");
 
+	/* Zero bit operations are undefined */
+	if (len_bits == 0U) {
+		self->flags |=  BITE_FLAG_UNDEFINED;
+		_bite_debug_str(self, 
+				BITE_ERR"zero bit operations are undefined!");
+		_bite_debug_flag(self, BITE_FLAG_UNDEFINED);
+	} else {
+		self->flags &= ~BITE_FLAG_UNDEFINED;
+	}
+
+	/* Previous `bite_begin` operation has not ended properly */
 	if (self->_iter_bits < self->_len_bits) {
 		self->flags |= BITE_FLAG_UNDERFLOW;
 		_bite_debug_str(self, 
-				BITE_ERR"Previous operation unfinished!");
+				BITE_ERR"previous operation unfinished!");
 		_bite_debug_flag(self, BITE_FLAG_UNDERFLOW);
 	} else {
 		self->flags &= ~BITE_FLAG_UNDERFLOW;
 	}
 
+	/* TODO Lazy evaluations */
+
+	/* TODO We should never go out of buffer bounds */
+	/*if (ofs_bits + len_bits) {
+	} else {
+	}*/
+
 	self->_ofs_bits = ofs_bits;
 	self->_len_bits = len_bits;
-
-	_bite_debug_int(self, "ofs_bits", ofs_bits);
-	_bite_debug_int(self, "len_bits", len_bits);
 
 	self->_iter_bits = 0U;
 
@@ -345,7 +381,7 @@ void bite_end(struct bite *self)
 	if (self->_iter_bits < self->_len_bits) {
 		self-> flags |= BITE_FLAG_UNDERFLOW;
 		_bite_debug_str(self,
-				BITE_ERR"Previous operation unfinished!");
+				BITE_ERR"previous operation unfinished!");
 		_bite_debug_flag(self, BITE_FLAG_UNDERFLOW);
 	}
 

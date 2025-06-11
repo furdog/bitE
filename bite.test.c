@@ -88,7 +88,7 @@ void bite_test_brute(enum bite_order order, bool verbose)
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;
 
-	bite_init(&bite, buf_a);
+	bite_init(&bite, buf_a, 8);
 	if (verbose == false) {
 		bite.debug = false;
 	}
@@ -145,7 +145,7 @@ void bite_test_use_cases()
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;
 
-	bite_init(&bite, buf);
+	bite_init(&bite, buf, 8);
 
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;	
