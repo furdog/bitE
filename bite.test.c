@@ -90,7 +90,9 @@ void bite_test_brute(enum bite_order order, bool verbose)
 
 	bite_init(&bite, buf_a, 8);
 	if (verbose == false) {
+#ifdef BITE_DEBUG
 		bite.debug = false;
+#endif
 	}
 
 	for (i = 0; i < 32; i++) {
