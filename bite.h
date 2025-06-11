@@ -333,6 +333,8 @@ void bite_init(struct bite *self, uint8_t *buf, size_t size)
 void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 		enum bite_order order)
 {
+	size_t last_bit_index = 0;
+	
 	_bite_debug_push(self, "bite_begin");
 
 	_bite_debug_int(self, "ofs_bits", ofs_bits);
@@ -361,17 +363,24 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 
 	/* TODO more Lazy evaluations */
 
-	/* Calculate offset inside every byte */
+	/* Calculate offset inside every byte and last bit index */
 	if (order == BITE_ORDER_BIG_ENDIAN) {
 		self->_ofs = (ofs_bits + 1U) % 8U;
+		last_bit_index = (((ofs_bits ^ 7U) + len_bits) - 1U);
 	} else {
 		self->_ofs = (ofs_bits + len_bits) % 8U;
+		last_bit_index = (ofs_bits + len_bits);
 	}
 
-	/* TODO We should never go out of buffer bounds */
-	/*if (ofs_bits + len_bits) {
+	/* If last bit index goes beyond buffer - set error flag */
+	if ((last_bit_index / 8U) >= self->_data_size) {
+		self->flags |=  BITE_FLAG_MEMORY;
+		_bite_debug_str(self, 
+		      BITE_ERR"operation may cause buffer overflow!");
+		_bite_debug_flag(self, BITE_FLAG_MEMORY);
 	} else {
-	}*/
+		self->flags &= ~BITE_FLAG_MEMORY;
+	}
 
 	self->_ofs_bits = ofs_bits;
 	self->_len_bits = len_bits;
