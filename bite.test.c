@@ -1,151 +1,78 @@
 #include <string.h>
 #include <stdio.h>
-
-void print_binary(unsigned int value, int bits) {
-#ifndef BITE_DEBUG
-	int i;
-
-	for (i = bits - 1; i >= 0; i--) {
-		putchar((value & (1U << i)) ? '1' : '0');
-	}
-	putchar('\n');
-#endif
-	(void)value;
-	(void)bits;
-}
+#include <stdlib.h>
 
 #include "bite.h"
 
-struct bite bite;
-uint8_t buf[8] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-void clearbuf(uint8_t val)
-{
-	int i;
+const char *bite_test_name    = "";
+const char *bite_test_variant = "";
 
-	for (i = 0; i < 8; i++) { buf[i] = val; }
+void bite_test_begin(const char *name, const char *variant)
+{
+	bite_test_name    = name;
+	bite_test_variant = variant;
 }
 
-void bite_test_print_result(uint8_t *buf)
+void bite_test_assert(bool assert, const char *str, int line)
 {
-	int i;
+	if (!assert) {
+		printf(BITE_RED"[Assertion at line: %i]"
+		       BITE_WHITE" %s\n"BITE_CRST,
+		       line, str);
+		printf(BITE_WHITE"%s"BITE_CRST" (%s): "
+		       BITE_RED"FAILED\n\n\n"BITE_CRST,
+		       bite_test_name, bite_test_variant);
 
-	for (i = 0; i < 8; i++) {
-		printf("0x%02X ", buf[i]);
+		fflush(0);
+		exit(0);
 	}
-	putchar('\n');
-
-	fflush(0);
 }
 
-void bite_test_print_result_binary(uint8_t *buf)
+#define BITE_TEST_ASSERT(a) bite_test_assert((a), (#a), __LINE__)
+
+void bite_test_end()
+{
+	printf(BITE_WHITE"%s"BITE_CRST" (%s): "
+	       BITE_GREEN"PASSED\n\n\n"BITE_CRST,
+	       bite_test_name, bite_test_variant);
+}
+
+void bite_test_print_buf(uint8_t *buf)
 {
 	int i;
 	int j;
 
+	printf(BITE_YELLOW);
+	for (i = 0; i < 8; i++) {
+		printf("0x%02X     ", buf[i]);
+	}
+	printf("\n");
+
 	for (j = 0; j < 8; j++) {
 		for (i = 8 - 1; i >= 0; i--) {
-			putchar((buf[j] & (1U << i)) ? '1' : '0');
+			printf((buf[j] & (1U << i)) ? "1" : "0");
 		}
-		putchar(' ');
+		printf(" ");
 	}
-	putchar('\n');
+	printf(BITE_CRST"\n\n");
+
+	fflush(0);
 }
 
-void bite_test()
+void bite_test_highlight_section(int line)
 {
-	uint8_t res = 0;
-
-	/* Trigger UBsan
-	 * volatile uint8_t x = 0xFF;
-	   volatile uint8_t y = 32;
-	   x >> y; */
-
-	bite_init(&bite, buf/*, 8*/);
-	
-	/* TEST NORMAL */
-	clearbuf(0xAA);
-	bite_begin(&bite, 15, 12, BITE_ORDER_BIG_ENDIAN);
-	bite_write(&bite, 0x12);
-	bite_write(&bite, 0x34);
-	bite_end(&bite);
-	bite_test_print_result(buf);
-	assert(bite.flags == 0);
-
-	/* TEST OVERFLOW */
-	bite_begin(&bite, 16, 16, BITE_ORDER_BIG_ENDIAN);
-	bite_write(&bite, 0x56);
-	bite_write(&bite, 0x78);
-	bite_write(&bite, 0x90);
-	bite_end(&bite);
-	bite_test_print_result(buf);
-	assert(bite.flags != 0);
-
-	/* TEST MISALIGNED (one byte) */
-	clearbuf(0x00);
-	bite_begin(&bite, 0, 2, BITE_ORDER_BIG_ENDIAN);
-	bite_write(&bite, 0xFF);
-	bite_write(&bite, 0xFF);
-	bite_end(&bite);
-	bite_test_print_result(buf);
-	bite_test_print_result_binary(buf);
-
-	bite_begin(&bite, 0, 2, BITE_ORDER_BIG_ENDIAN);
-	assert(bite_read(&bite) == 0x03);
-	bite_end(&bite);
-
-	/* TEST MISALIGNED (multibyte) */
-	clearbuf(0xAA);
-	bite_begin(&bite, 2, 16, BITE_ORDER_BIG_ENDIAN);
-	bite_write(&bite, 0xFF);
-	bite_write(&bite, 0xFF);
-	bite_end(&bite);
-	bite_test_print_result(buf);
-	bite_test_print_result_binary(buf);
-
-	bite_begin(&bite, 2, 16, BITE_ORDER_BIG_ENDIAN);
-	assert(bite_read(&bite) == 0xFF);
-	assert(bite_read(&bite) == 0xFF);
-	bite_end(&bite);
-
-	/* TEST MISALIGNED (Ending) */
-	clearbuf(0xAA);
-	bite_begin(&bite, 8, 9, BITE_ORDER_BIG_ENDIAN);
-	bite_write(&bite, 0xF2);
-	bite_write(&bite, 0xAF);
-	bite_end(&bite);
-	bite_test_print_result(buf);
-	bite_test_print_result_binary(buf);
-
-	bite_begin(&bite, 8, 9, BITE_ORDER_BIG_ENDIAN);
-	assert(bite_read(&bite) == 0xF2);
-	assert(bite_read(&bite) == 0xAF >> 7);
-	bite_end(&bite);
-
-	/* TEST UNDERFLOW */
-	bite_begin(&bite, 16, 16, BITE_ORDER_BIG_ENDIAN);
-	bite_write(&bite, 0x12);
-	bite_end(&bite);
-
-	bite_test_print_result(buf);
-	assert(bite.flags == BITE_FLAG_UNDERFLOW);
-
-	/* TEST OTHER */
-	bite_init(&bite, buf/*, 8*/);
-	
-	clearbuf(0xAA);
-	bite_begin(&bite, 1, 8, BITE_ORDER_BIG_ENDIAN);
-	bite_write(&bite, 0xFF);
-	bite_test_print_result(buf);
-	bite_test_print_result_binary(buf);
-
-	bite_rewind(&bite);
-	res = bite_read(&bite);
-	print_binary(res, 8);
-	assert(res == 0xFF);
-	bite_end(&bite);
+	printf("----------------------------------------"
+	       "---------------------------------------\n");
+	printf(BITE_INFO"[Line: %i]"BITE_CRST" %s (%s)\n",
+	       line, bite_test_name, bite_test_variant);
+	printf("----------------------------------------"
+	       "---------------------------------------\n");
 }
 
-void bite_test_brute(enum bite_order order)
+#define BITE_TEST_HIGHLIGHT_SECTION bite_test_highlight_section(__LINE__)
+
+/* This is a brute force test that checks various ranges of input parameters */
+void bite_test_brute(enum bite_order order, bool verbose)
 {
 	struct bite bite;
 	int i, j;
@@ -157,9 +84,15 @@ void bite_test_brute(enum bite_order order)
 	
 	/* Temporary buffer */
 	uint8_t buf_t[8];
-	
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+
 	bite_init(&bite, buf_a);
-	
+	if (verbose == false) {
+		bite.debug = false;
+	}
+
 	for (i = 0; i < 32; i++) {
 		for (j = 1; j <= 32; j++) {
 			/* Read values from buffer buf_a and store to buf_t */
@@ -169,14 +102,16 @@ void bite_test_brute(enum bite_order order)
 			buf_t[2] = bite_read(&bite);
 			buf_t[3] = bite_read(&bite);
 			bite_end(&bite);
-
-			bite_test_print_result(buf_a);
-			bite_test_print_result_binary(buf_a);
-			bite_test_print_result(buf_b);
-			bite_test_print_result_binary(buf_b);
+			
+			if (verbose == true) {
+				printf("buf_a:\n");
+				bite_test_print_buf(buf_a);
+				printf("buf_b:\n");
+				bite_test_print_buf(buf_b);
+			}
 
 			/* Check if buffers still intact */
-			assert(!memcmp(buf_a, buf_b, 8));
+			BITE_TEST_ASSERT(!memcmp(buf_a, buf_b, 8));
 
 			/* Override buf_a values */
 			bite_begin(&bite, i, j, order);
@@ -186,11 +121,10 @@ void bite_test_brute(enum bite_order order)
 			bite_write(&bite, 0xAB);
 			bite_end(&bite);
 
-			bite_test_print_result(buf_a);
-			bite_test_print_result_binary(buf_a);
-
-			/* Check if buffers are different */
-			/* assert(memcmp(buf_a, buf_b, 8)); */
+			if (verbose == true) {
+				printf("buf_a overriden:\n");
+				bite_test_print_buf(buf_a);
+			}
 
 			/* Rewrite buf_a with the previous values */
 			bite_begin(&bite, i, j, order);
@@ -199,37 +133,95 @@ void bite_test_brute(enum bite_order order)
 			bite_write(&bite, buf_t[2]);
 			bite_write(&bite, buf_t[3]);
 			bite_end(&bite);
-
 		}
 	}
 }
 
+void bite_test_use_cases()
+{
+	struct bite bite;
+	uint8_t buf[8];
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+
+	bite_init(&bite, buf);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;	
+	memset((void *)buf, 0, 8);
+
+	/* Test simple write case (write 1 byte) into first `buf` byte
+	 * For BIG ENDIAN mode bits are numbered from MSB(7) to LSB(0) */
+	bite_begin(&bite, 7, 8, BITE_ORDER_BIG_ENDIAN);
+
+	/* Write operation always accepts bytes in BIG ENDIAN order,
+	 * regardless of bitE setup */
+	bite_write(&bite, 0xAB);
+	bite_end(&bite);
+
+	/* Print `buf` contents both in hexadecimal and binary */
+	bite_test_print_buf(buf);
+
+	/* Read previously written byte and check its value */
+	bite_begin(&bite, 7, 8, BITE_ORDER_BIG_ENDIAN);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xAB);
+	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	/* Test multibyte case (write multiple bytes into `buf`) */
+	bite_begin(&bite, 7, 24, BITE_ORDER_BIG_ENDIAN);
+
+	bite_write(&bite, 0xAB);
+	bite_write(&bite, 0xCD);
+	bite_write(&bite, 0xEF);
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 7, 24, BITE_ORDER_BIG_ENDIAN);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xAB);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xCD);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xEF);
+	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	/* Test with 3 bit offset from MSB (7-3=4) */
+	bite_begin(&bite, 4, 8, BITE_ORDER_BIG_ENDIAN);
+	bite_write(&bite, 0xAB);
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 4, 8, BITE_ORDER_BIG_ENDIAN);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xAB);
+	bite_end(&bite);
+
+	/* TODO more use cases */
+}
+
 int main()
 {
-	bite_init(&bite, buf);
-	
-	clearbuf(0x00);
-	bite_begin(&bite, 0, 8, BITE_ORDER_LIL_ENDIAN);
-	bite_write(&bite, 0xAA);
-	bite_end(&bite);
-	bite_test_print_result(buf);
-	bite_test_print_result_binary(buf);
+	/* Set this flag to true if `bite_test_brute` has failed */
+	bool verbose = false;
 
-	bite_begin(&bite, 0, 8, BITE_ORDER_LIL_ENDIAN);
-	assert(bite_read(&bite) == 0xAA);
-	bite_end(&bite);
+	bite_test_begin("bite_test_brute", "BITE_ORDER_BIG_ENDIAN");
+	bite_test_brute(BITE_ORDER_BIG_ENDIAN, verbose);
+	bite_test_end();
 
-	/*clearbuf(0x00);
-	bite_begin(&bite, idx2, 8);
-	bite_write(&bite, 0xFA);
-	bite_end(&bite);*/
-	/*bite_test_print_result();
-	bite_test_print_result_binary();*/
+	bite_test_begin("bite_test_brute", "BITE_ORDER_LIL_ENDIAN");
+	bite_test_brute(BITE_ORDER_LIL_ENDIAN, verbose);
+	bite_test_end();
 
-	/* bite_test(); */
-
-	bite_test_brute(BITE_ORDER_BIG_ENDIAN);
-	bite_test_brute(BITE_ORDER_LIL_ENDIAN);
+	bite_test_begin("bite_test_use_cases", "");
+	bite_test_use_cases();
+	bite_test_end();
 
 	return 0;
 }

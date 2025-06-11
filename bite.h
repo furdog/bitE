@@ -19,8 +19,13 @@
  */
 enum bite_order
 {
-	BITE_ORDER_LIL_ENDIAN = 0, /**< Little endian */
-	BITE_ORDER_BIG_ENDIAN = 1  /**< Big endian */
+	BITE_ORDER_BIG_ENDIAN = 0, /**< Big endian */
+	BITE_ORDER_MOTOROLA   = 0, /**< Big endian */
+	BITE_ORDER_DBC_0      = 0, /**< Big endian */
+
+	BITE_ORDER_LIL_ENDIAN = 1, /**< Little endian */
+	BITE_ORDER_INTEL      = 1, /**< Little endian */
+	BITE_ORDER_DBC_1      = 1  /**< Little endian */
 };
 
 /**
@@ -225,11 +230,11 @@ void _bite_debug_pop(struct bite *self)
 /******************************************************************************
  * PRIVATE
  *****************************************************************************/
-uint8_t *_bite_get_dst_buf(struct bite *self, uint8_t *chunk_len)
+uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 {
 	uint8_t *result = NULL;
 	
-	_bite_debug_push(self, "_bite_get_dst_buf");
+	_bite_debug_push(self, "_bite_get_buf");
 
 	if (self->_iter_bits >= self->_len_bits) {
 		_bite_debug_str(self,
@@ -384,7 +389,7 @@ void bite_write(struct bite *self, uint8_t data)
 	}
 
 	/* Get destination data buffer */
-	d = _bite_get_dst_buf(self, &chunk_len);
+	d = _bite_get_buf(self, &chunk_len);
 	
 	if (d != NULL) {
 		_bite_debug_bin(self, "source data      ", data);
@@ -534,7 +539,7 @@ uint8_t bite_read(struct bite *self)
 	}
 
 	/* Get destination data buffer */
-	d = _bite_get_dst_buf(self, &chunk_len);
+	d = _bite_get_buf(self, &chunk_len);
 	
 	if (d != NULL) {
 		_bite_debug_int(self, "offset (from LSB)", ofs);
