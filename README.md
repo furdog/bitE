@@ -1,8 +1,5 @@
 # bitE
-
-![Logo](logo.jpg)
-
----
+<p align="center"><img src="logo.jpg" /></p>
 
 ## Overview
 
@@ -158,3 +155,5 @@ MIT License.
 For questions or contributions, open an issue or pull request.
 
 ---
+
+[![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct-single.svg)](https://stand-with-ukraine.pp.ua)
