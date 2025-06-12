@@ -9,6 +9,10 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#ifdef    BITE_PEDANTIC
+#pragma message ( "Pedantic mode has been activated!" )
+#endif /* BITE_PEDANTIC */
+
 /******************************************************************************
  * CLASS
  *****************************************************************************/
@@ -76,9 +80,9 @@ struct bite {
 #define BITE_GREEN  "\x1b" "[1;32m"
 #define BITE_CRST    "\x1b" "[0m"
 
-#define BITE_ERR  BITE_RED    "ERR: "  BITE_CRST
-#define BITE_WARN BITE_ORANGE "WARN: " BITE_CRST
-#define BITE_INFO BITE_GREEN  "INFO: " BITE_CRST
+#define BITE_ERR  BITE_RED    "ERR:"  BITE_CRST " "
+#define BITE_WARN BITE_ORANGE "WARN:" BITE_CRST " "
+#define BITE_INFO BITE_GREEN  "INFO:" BITE_CRST " "
 
 #ifdef BITE_DEBUG
 void _bite_debug_nest(struct bite *self, int8_t level)
@@ -101,30 +105,25 @@ void _bite_debug_nest_apply(struct bite *self)
 
 void _bite_debug_flag(struct bite *self, uint8_t flag)
 {
-	const char *flag_names[] = {"BITE_FLAG_NONE", "BITE_FLAG_OVERFLOW",
-				    "BITE_FLAG_UNDERFLOW",
-				    "BITE_FLAG_UNDEFINED", "BITE_FLAG_MEMORY",
-				    "BITE_FLAG_UNKNOWN"};
-
 	const char *flag_name = NULL;
 
 	if (flag == (uint8_t)BITE_FLAG_NONE) {
-		flag_name = flag_names[0];
+		flag_name = "BITE_FLAG_NONE";
 	} else if (flag == (uint8_t)BITE_FLAG_OVERFLOW) {
-		flag_name = flag_names[1];
+		flag_name = "BITE_FLAG_OVERFLOW";
 	} else if (flag == (uint8_t)BITE_FLAG_UNDERFLOW) {
-		flag_name = flag_names[2];
+		flag_name = "BITE_FLAG_UNDERFLOW";
 	} else if (flag == (uint8_t)BITE_FLAG_UNDEFINED) {
-		flag_name = flag_names[3];
+		flag_name = "BITE_FLAG_UNDEFINED";
 	} else if (flag == (uint8_t)BITE_FLAG_MEMORY) {
-		flag_name = flag_names[4];
+		flag_name = "BITE_FLAG_MEMORY";
 	} else {
-		flag_name = flag_names[5];
+		flag_name = "BITE_FLAG_UNKNOWN";
 	}
 
 	if (self->debug) {
 		_bite_debug_nest_apply(self);
-		(void)printf("self->flag |= %s\n", flag_name);
+		(void)printf("%s\n", flag_name);
 	}
 }
 
@@ -246,6 +245,35 @@ void _bite_debug_pop(struct bite *self)
 /******************************************************************************
  * PRIVATE
  *****************************************************************************/
+void _bite_set_flag(struct bite *self, uint8_t flag)
+{
+	if ((self->flags & flag) == 0U) {
+		_bite_debug_push(self, "_bite_set_flag");
+		_bite_debug_flag(self, flag);
+		_bite_debug_pop(self);
+
+#ifdef   BITE_PEDANTIC
+		(void)printf(BITE_ERR"flags has been set! "
+			     BITE_RED"(BITE_PEDANTIC)\n"BITE_CRST);
+		(void)fflush(0);
+		assert(0);
+#endif /*BITE_PEDANTIC*/
+	}
+
+	self->flags |= flag;
+}
+
+void _bite_remove_flag(struct bite *self, uint8_t flag)
+{
+	if ((self->flags & flag) > 0U) {
+		_bite_debug_push(self, "_bite_remove_flag");
+		_bite_debug_flag(self, flag);
+		_bite_debug_pop(self);
+	}
+
+	self->flags &= ~flag;
+}
+
 uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 {
 	uint8_t *result = NULL;
@@ -259,8 +287,7 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 	} else if (self->_iter_bits >= self->_len_bits) {
 		_bite_debug_str(self,
 				BITE_ERR"attempt to read out of bounds!");
-		self->flags |= BITE_FLAG_OVERFLOW;
-		_bite_debug_flag(self, BITE_FLAG_OVERFLOW);
+		_bite_set_flag(self, BITE_FLAG_OVERFLOW);
 	/* Return pointer to data if everything is ok */
 	} else {
 		size_t _chunk_len = self->_len_bits - self->_iter_bits;
@@ -313,13 +340,21 @@ void bite_init(struct bite *self, uint8_t *buf, size_t size)
 	/* Runtime (lazy evaluation) */
 	self->_ofs = 0;
 
-#ifdef BITE_DEBUG
+#ifdef    BITE_DEBUG
 	self->debug = true;
 	self->nest  = 0;
-#endif
+#endif /* BITE_DEBUG */
 	_bite_debug_push(self, "bite_init");
 	_bite_debug_str(self, BITE_WARN"debug mode is activated! This "
 			      "may cause serious performance impact!");
+
+#ifdef    BITE_PEDANTIC
+	_bite_debug_str(self, BITE_WARN"pedantic mode is activated! This "
+					"enables assertions and may lead to "
+					"unexpected crashes! Please disable "
+					"pedantic mode in production code!");
+#endif /* BITE_PEDANTIC */
+
 	_bite_debug_pop(self);
 }
 
@@ -343,22 +378,20 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 
 	/* Zero bit operations are undefined */
 	if (len_bits == 0U) {
-		self->flags |=  BITE_FLAG_UNDEFINED;
 		_bite_debug_str(self, 
 				BITE_ERR"zero bit operations are undefined!");
-		_bite_debug_flag(self, BITE_FLAG_UNDEFINED);
+		_bite_set_flag(self, BITE_FLAG_UNDEFINED);
 	} else {
-		self->flags &= ~BITE_FLAG_UNDEFINED;
+		_bite_remove_flag(self, BITE_FLAG_UNDEFINED);
 	}
 
 	/* Previous `bite_begin` operation has not ended properly */
 	if (self->_iter_bits < self->_len_bits) {
-		self->flags |= BITE_FLAG_UNDERFLOW;
 		_bite_debug_str(self, 
-				BITE_ERR"previous operation unfinished!");
-		_bite_debug_flag(self, BITE_FLAG_UNDERFLOW);
+				BITE_WARN"previous operation is unfinished!");
+		_bite_set_flag(self, BITE_FLAG_UNDERFLOW);
 	} else {
-		self->flags &= ~BITE_FLAG_UNDERFLOW;
+		_bite_remove_flag(self, BITE_FLAG_UNDERFLOW);
 	}
 
 	/* TODO more Lazy evaluations */
@@ -374,12 +407,11 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 
 	/* If last bit index goes beyond buffer - set error flag */
 	if ((last_bit_index / 8U) >= self->_data_size) {
-		self->flags |=  BITE_FLAG_MEMORY;
 		_bite_debug_str(self, 
 		      BITE_ERR"operation may cause buffer overflow!");
-		_bite_debug_flag(self, BITE_FLAG_MEMORY);
+		_bite_set_flag(self, BITE_FLAG_MEMORY);
 	} else {
-		self->flags &= ~BITE_FLAG_MEMORY;
+		_bite_remove_flag(self, BITE_FLAG_MEMORY);
 	}
 
 	self->_ofs_bits = ofs_bits;
@@ -389,8 +421,8 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 
 	self->_order = order;
 
-	_bite_debug_nest(self, 1);
-	_bite_debug_pop(self);
+	/* _bite_debug_nest(self, 1);
+	   _bite_debug_pop(self); */
 }
 
 /**
@@ -402,10 +434,9 @@ void bite_end(struct bite *self)
 	_bite_debug_push(self, "bite_end");
 
 	if (self->_iter_bits < self->_len_bits) {
-		self-> flags |= BITE_FLAG_UNDERFLOW;
 		_bite_debug_str(self,
-				BITE_ERR"previous operation unfinished!");
-		_bite_debug_flag(self, BITE_FLAG_UNDERFLOW);
+				BITE_ERR"current operation is unfinished!");
+		_bite_set_flag(self, BITE_FLAG_UNDERFLOW);
 	}
 
 	_bite_debug_nest(self, -99);

@@ -97,6 +97,10 @@ void bite_test_brute(enum bite_order order, bool verbose)
 
 	for (i = 0; i < 32; i++) {
 		for (j = 1; j <= 32; j++) {
+			if (verbose == true) {
+				BITE_TEST_HIGHLIGHT_SECTION;
+			}
+
 			/* Read values from buffer buf_a and store to buf_t */
 			bite_begin(&bite, i, j, order);
 			buf_t[0] = bite_read(&bite);
@@ -114,6 +118,10 @@ void bite_test_brute(enum bite_order order, bool verbose)
 
 			/* Check if buffers still intact */
 			BITE_TEST_ASSERT(!memcmp(buf_a, buf_b, 8));
+
+			if (verbose == true) {
+				BITE_TEST_HIGHLIGHT_SECTION;
+			}
 
 			/* Override buf_a values */
 			bite_begin(&bite, i, j, order);
