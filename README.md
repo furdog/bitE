@@ -1,4 +1,3 @@
-
 # bitE
 
 ![Logo](logo.jpg)
@@ -7,45 +6,24 @@
 
 ## Overview
 
-The `bitE` project provides a single-header C89 library for low-level, bit-wise read and write operations. It is designed to work in systems with limited resources (e.g., embedded platforms), focusing on performance, transparency, and debugging. It follows MISRA guidelines, avoids dynamic memory allocation, and is free of multithreading. It is compatible with CAN DBC.
+The `bitE` is a tool for bit-wise read and write operations performed on
+arbitary uint8_t buffers. The bit access is compatible with CAN DBC format.
 
 ---
 
 ## Features
 
-- Read/write bitfields up to 8 bits
-- Configurable endianness
-- Debugging support (`BITE_DEBUG`)
-- Status flags for overflow and underflow
-- Modular, driver-agnostic approach
-- Constant time complexity
-- Stream design: Write and read byte by byte
-
----
-
-## File structure
-
-- `bite.h`: Single-header library containing all logic
-- `bite.test.c`: Test file used to confirm correct logic
-- `make.sh`: Builds test (requires cppcheck with MISRA headlines)
-- `README.md`: Project documentation
-
----
-
-## Key data structures
-
-### `struct bite`
-
-| Field        | Description                       |
-|--------------|-----------------------------------|
-| `_data`      | Pointer to data buffer           |
-| `_ofs_bits`  | Start bit offset                 |
-| `_len_bits`  | Total bit length                 |
-| `_iter_bits` | Current bit offset               |
-| `flags`      | Status flags                     |
-| `_order`     | Endianness (`BITE_ORDER_*`)      |
-| `debug`      | Debug flag (if `BITE_DEBUG` set) |
-| `nest`       | Debug nesting (if `BITE_DEBUG`)  |
+- Critical safety (hardcore input and boundary checks)
+- Constant time complexity for each operation
+- 100% MISRA compilance (cppcheck)
+- Written fully on C (std=c89)
+- Linux kernel style
+- Zero dependencies
+- Single header library
+- Automated tests
+- Verbose and colored debug output for every operation
+- Stream oriented (byte by byte read/write)
+- Pedantic mode (asserts enabled)
 
 ---
 
@@ -54,21 +32,43 @@ The `bitE` project provides a single-header C89 library for low-level, bit-wise 
 ### Initialization
 
 ```c
-void bite_init(struct bite *self, uint8_t *buf);
-````
+void bite_init(struct bite *self, uint8_t *buf, size_t size);
+```
 
-Initializes the `bite` context.
+Initializes the `bitE` context.
 
 ---
 
-### Begin/End bit-wise operation
+### Begin / End
 
 ```c
-void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits, enum bite_order order);
+void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
+		enum bite_order order);
+```
+
+Begin bit-wise operations on a specified range according to CAN DBC format.
+The `order` specifies endianness and can have various values:
+```c
+BITE_ORDER_BIG_ENDIAN = 0, /**< Big endian */
+BITE_ORDER_MOTOROLA   = 0, /**< Big endian */
+BITE_ORDER_DBC_0      = 0, /**< Big endian */
+
+BITE_ORDER_LIL_ENDIAN = 1, /**< Little endian */
+BITE_ORDER_INTEL      = 1, /**< Little endian */
+BITE_ORDER_DBC_1      = 1  /**< Little endian */
+```
+
+* may set various error flags
+
+---
+
+```c
 void bite_end(struct bite *self);
 ```
 
-Starts/ends a bit-wise operation on a range.
+Ends a bit-wise operation on a range.
+
+* may set various error flags
 
 ---
 
@@ -78,7 +78,8 @@ Starts/ends a bit-wise operation on a range.
 void bite_rewind(struct bite *self);
 ```
 
-Resets iteration.
+This will reset internal `bitE` stream iterator.
+Any read/write operations will start from beggining.
 
 ---
 
@@ -88,7 +89,11 @@ Resets iteration.
 void bite_write(struct bite *self, uint8_t data);
 ```
 
-Writes up to 8 bits.
+Writes up to 8 bits INTO a range, iterates forward onto next 8 bits.
+If there are less than 8 bits to write - it only writes LSB bits.
+Exceed MSB bits are masked and not included into a stream in any way.
+
+* may set various error flags
 
 ---
 
@@ -98,38 +103,18 @@ Writes up to 8 bits.
 uint8_t bite_read(struct bite *self);
 ```
 
-Reads up to 8 bits.
+reads up to 8 bits FROM range, iterates forward onto next 8 bits.
+If there are less than 8 bits to read - it only reads LSB bits (MSB is zeroed).
+
+* may set various error flags
 
 ---
 
 ### Debugging (enabled via `-DBITE_DEBUG`)
 
-When compiled with `BITE_DEBUG`, debug logs show detailed tracing of all read/write operations, including binary representation and intermediate calculations. Logs are color-coded.
-
----
-
-## Usage Example
-
-```c
-#include "bite.h"
-
-uint8_t data[4] = {0};
-struct bite b;
-
-bite_init(&b, data);
-
-/* Begin operation with offset of 3 bits, and length of 5 (CAN DBC format) */
-bite_begin(&b, 3, 5, BITE_ORDER_BIG_ENDIAN);
-
-/* Write exactly 5 bits (remaining MSB bits WILL BE masked) */
-bite_write(&b, 0x1F);
-bite_end(&b);
-```
-
-For more usage examples see test file.
-
-## Debug output example
-![debug_example](https://github.com/user-attachments/assets/1dd32127-5c01-4d2c-91ca-500467c5884f)
+When compiled with `BITE_DEBUG`, debug logs show detailed tracing of all
+read/write operations, including binary representation and intermediate
+calculations. Logs are color-coded.
 
 ---
 
@@ -150,8 +135,6 @@ gcc -DBITE_DEBUG ...
 ---
 
 ## TODO
-
-- `bite_begin` does not check source buffer bounds, thus may cause buffer overflow
 - `bite_read` and `bite_write` should never be used in the same context
 - Some variables unnecessarily calculated with every read/write call (OPTIMIZE)
 - Tests and use cases should be more descriptive, as well as the README
