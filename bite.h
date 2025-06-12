@@ -2,8 +2,9 @@
  * @file bite.h
  * @brief Bit-wise read/write operations with debugging.
  */
-#ifndef BITE_GUARD
-#define BITE_GUARD
+
+#ifndef   BITE_GUARD
+#define   BITE_GUARD
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -73,18 +74,27 @@ struct bite {
 /******************************************************************************
  * DEBUG
  *****************************************************************************/
+#ifdef    BITE_COLOR
 #define BITE_RED    "\x1b" "[1;31m"
 #define BITE_YELLOW "\x1b" "[1;33m"
 #define BITE_ORANGE "\x1b" "[38;5;208m"
 #define BITE_WHITE  "\x1b" "[1;37m"
 #define BITE_GREEN  "\x1b" "[1;32m"
-#define BITE_CRST    "\x1b" "[0m"
+#define BITE_CRST   "\x1b" "[0m"
+#else  /* BITE_COLOR */
+#define BITE_RED    ""
+#define BITE_YELLOW ""
+#define BITE_ORANGE ""
+#define BITE_WHITE  ""
+#define BITE_GREEN  ""
+#define BITE_CRST   ""
+#endif /* BITE_COLOR */
 
 #define BITE_ERR  BITE_RED    "ERR:"  BITE_CRST " "
 #define BITE_WARN BITE_ORANGE "WARN:" BITE_CRST " "
 #define BITE_INFO BITE_GREEN  "INFO:" BITE_CRST " "
 
-#ifdef BITE_DEBUG
+#ifdef    BITE_DEBUG
 void _bite_debug_nest(struct bite *self, int8_t level)
 {
 	self->nest += level;
@@ -184,7 +194,7 @@ void _bite_debug_pop(struct bite *self)
 	}
 }
 
-#else
+#else /* BITE_DEBUG */
 void _bite_debug_nest(struct bite *self, int8_t level)
 {
 	(void)self;
@@ -240,7 +250,7 @@ void _bite_debug_pop(struct bite *self)
 	(void)self;
 }
 
-#endif
+#endif /* BITE_DEBUG */
 
 /******************************************************************************
  * PRIVATE

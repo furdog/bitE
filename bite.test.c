@@ -42,9 +42,8 @@ void bite_test_print_buf(uint8_t *buf)
 	int i;
 	int j;
 
-	printf(BITE_YELLOW);
 	for (i = 0; i < 8; i++) {
-		printf("0x%02X     ", buf[i]);
+		printf(BITE_YELLOW"0x%02X     ", buf[i]);
 	}
 	printf("\n");
 
