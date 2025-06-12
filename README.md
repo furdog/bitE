@@ -1,30 +1,32 @@
 # bitE
+
 <p align="center"><img src="logo.jpg" /></p>
+
+-----
 
 ## Overview
 
-The `bitE` is a tool for bit-wise read and write operations performed on
-arbitary uint8_t buffers. The bit access is compatible with CAN DBC format.
+`bitE` is a versatile C library designed for **bit-wise read and write operations** on `uint8_t` buffers. It offers compatibility with the **CAN DBC format**, making it ideal for automotive and embedded systems development.
 
----
+-----
 
-## Features
+## Key Features
 
-- Critical safety (hardcore input and boundary checks)
-- Constant time complexity for each operation
-- 100% MISRA compilance (cppcheck)
-- Written fully on C (std=c89)
-- Linux kernel style
-- Zero dependencies
-- Single header library
-- Automated tests
-- Verbose and colored debug output for every operation
-- Stream oriented (byte by byte read/write)
-- Pedantic mode (asserts enabled)
+  * **Robust Safety:** Includes rigorous input and boundary checks.
+  * **Efficient Operations:** Ensures constant time complexity for every bit-wise operation.
+  * **MISRA Compliance:** Achieves 100% MISRA compliance (verified with `cppcheck`).
+  * **Pure C:** Written entirely in C (C89 standard).
+  * **Linux Kernel Style:** Adheres to Linux kernel coding conventions.
+  * **Zero Dependencies:** No external library dependencies.
+  * **Single-Header:** Provided as a convenient single-header library.
+  * **Automated Tests:** Comprehensive automated tests for reliability.
+  * **Verbose Debugging:** Offers detailed, color-coded debug output for all operations, including binary representations and intermediate calculations.
+  * **Stream-Oriented:** Supports byte-by-byte read/write operations.
+  * **Pedantic Mode:** Enables assertions for stricter development and early error detection.
 
----
+-----
 
-## API
+## API Reference
 
 ### Initialization
 
@@ -32,19 +34,19 @@ arbitary uint8_t buffers. The bit access is compatible with CAN DBC format.
 void bite_init(struct bite *self, uint8_t *buf, size_t size);
 ```
 
-Initializes the `bitE` context.
+Initializes the `bitE` context with the provided data buffer and its size.
 
----
+-----
 
-### Begin / End
+### Begin / End Operations
 
 ```c
 void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 		enum bite_order order);
 ```
 
-Begin bit-wise operations on a specified range according to CAN DBC format.
-The `order` specifies endianness and can have various values:
+Starts a bit-wise operation on a specified bit range, adhering to the CAN DBC format. The `order` parameter defines endianness:
+
 ```c
 BITE_ORDER_BIG_ENDIAN = 0, /**< Big endian */
 BITE_ORDER_MOTOROLA   = 0, /**< Big endian */
@@ -55,105 +57,100 @@ BITE_ORDER_INTEL      = 1, /**< Little endian */
 BITE_ORDER_DBC_1      = 1  /**< Little endian */
 ```
 
-* may set various error flags
+  * This function may set various error flags.
 
----
+-----
 
 ```c
 void bite_end(struct bite *self);
 ```
 
-Ends a bit-wise operation on a range.
+Concludes the current bit-wise operation on a range.
 
-* may set various error flags
+  * This function may set various error flags.
 
----
+-----
 
-### Rewind
+### Rewind Stream
 
 ```c
 void bite_rewind(struct bite *self);
 ```
 
-This will reset internal `bitE` stream iterator.
-Any read/write operations will start from beggining.
+Resets the internal `bitE` stream iterator, causing subsequent read/write operations to start from the beginning of the defined range.
 
----
+-----
 
-### Write bits
+### Write Bits
 
 ```c
 void bite_write(struct bite *self, uint8_t data);
 ```
 
-Writes up to 8 bits INTO a range, iterates forward onto next 8 bits.
-If there are less than 8 bits to write - it only writes LSB bits.
-Exceed MSB bits are masked and not included into a stream in any way.
+Writes up to 8 bits into the current range and advances the internal stream iterator. If fewer than 8 bits remain in the range, only the least significant bits (LSB) of `data` are written; excess most significant bits (MSB) are masked out.
 
-* may set various error flags
+  * This function may set various error flags.
 
----
+-----
 
-### Read bits
+### Read Bits
 
 ```c
 uint8_t bite_read(struct bite *self);
 ```
 
-reads up to 8 bits FROM range, iterates forward onto next 8 bits.
-If there are less than 8 bits to read - it only reads LSB bits (MSB is zeroed).
+Reads up to 8 bits from the current range and advances the internal stream iterator. If fewer than 8 bits remain, only the least significant bits (LSB) are read, and the MSB are zeroed.
 
-* may set various error flags
+  * This function may set various error flags.
 
----
+-----
 
-### Debugging (enabled via `-DBITE_DEBUG`)
+## Debugging
 
-When compiled with `BITE_DEBUG`, debug logs show detailed tracing of all
-read/write operations, including binary representation and intermediate
-calculations. Logs are color-coded.
+To enable **verbose and color-coded debug output** for all read/write operations, compile your code with the `-DBITE_DEBUG` flag. This provides detailed tracing, including binary representations and intermediate calculations, invaluable for development and troubleshooting.
 
----
+-----
 
 ## Building
 
-The library is a single-header file (`bite.h`). Include it directly:
+`bitE` is a **single-header library**. Simply include `bite.h` in your C source files:
 
 ```c
 #include "bite.h"
 ```
 
-To enable debugging:
+To enable debugging during compilation:
 
-```
+```bash
 gcc -DBITE_DEBUG ...
 ```
 
----
+-----
 
 ## TODO
-- `bite_read` and `bite_write` should never be used in the same context
-- Some variables unnecessarily calculated with every read/write call (OPTIMIZE)
-- Tests and use cases should be more descriptive, as well as the README
 
----
+  * Ensure `bite_read` and `bite_write` are not used concurrently within the same context.
+  * Optimize by reducing unnecessary variable calculations in read/write calls.
+  * Enhance clarity of tests, use cases, and the README with more descriptive content.
+
+-----
 
 ## Contributing
 
-Bug reports, suggestions, and improvements are welcome!
+Bug reports, suggestions, and improvements are highly encouraged\! Feel free to open an issue or submit a pull request.
 
----
+-----
 
 ## License
 
-MIT License.
+`bitE` is distributed under the **MIT License**.
 
----
+-----
 
 ## Contact
 
-For questions or contributions, open an issue or pull request.
+For any questions or to contribute, please use the GitHub issues or pull requests.
 
----
+-----
 
 [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner-direct-single.svg)](https://stand-with-ukraine.pp.ua)
