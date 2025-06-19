@@ -13,3 +13,5 @@ gcc ${SOURCE} -std=c89 -pedantic -Wall -Wextra -g \
 
 gcc ${SOURCE} -std=c89 -pedantic -Wall -Wextra -O3 -S &>/dev/null \
 	      -masm=intel #-fverbose-asm
+
+rm *.h.ctu-info *.h.dump

@@ -146,7 +146,7 @@ void bite_test_brute(enum bite_order order, bool verbose)
 	}
 }
 
-void bite_test_use_cases()
+void bite_test_use_cases_be()
 {
 	struct bite bite;
 	uint8_t buf[8];
@@ -233,6 +233,93 @@ void bite_test_use_cases()
 	/* TODO more use cases */
 }
 
+void bite_test_use_cases_le()
+{
+	struct bite bite;
+	uint8_t buf[8];
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+
+	bite_init(&bite, buf, 8);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;	
+	memset((void *)buf, 0, 8);
+
+	/* Test simple write case (write 1 byte) into first `buf` byte
+	 * For LITTLE ENDIAN mode bits are numbered from LSB(0) to MSB(7) */
+	bite_begin(&bite, 0, 8, BITE_ORDER_LIL_ENDIAN);
+
+	/* Write operation always accepts bytes in BIG ENDIAN order,
+	 * regardless of bitE setup */
+	bite_write(&bite, 0xAB);
+	bite_end(&bite);
+
+	/* Print `buf` contents both in hexadecimal and binary */
+	bite_test_print_buf(buf);
+
+	/* Read previously written byte and check its value */
+	bite_begin(&bite, 0, 8, BITE_ORDER_LIL_ENDIAN);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xAB);
+	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	/* Test multibyte case (write multiple bytes into `buf`)
+	 * We only write 20 bits, so the last byte will write 4 LSB bits */
+	bite_begin(&bite, 0, 20, BITE_ORDER_LIL_ENDIAN);
+
+	bite_write(&bite, 0xAB);
+	bite_write(&bite, 0xCD);
+	bite_write(&bite, 0xEF); /* MSB part 0xE* will be masked! */
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 0, 20, BITE_ORDER_LIL_ENDIAN);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xAB);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xCD);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0x0F); /* MSB is masked */
+	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	/* Test with 3 bit offset from LSB 
+	 * Data will be fragmented inside `buf` in two bytes */
+	bite_begin(&bite, 3, 8, BITE_ORDER_LIL_ENDIAN);
+	bite_write(&bite, 0xAB);
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 3, 8, BITE_ORDER_LIL_ENDIAN);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0xAB);
+	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	/* Test with 3 bit offset from LSB 
+	 * Write bitfield of 3 bits */
+	bite_begin(&bite, 3, 3, BITE_ORDER_LIL_ENDIAN);
+	bite_write(&bite, 0xFF); /* MSB will be masked for remaining bits */
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 3, 3, BITE_ORDER_LIL_ENDIAN);
+	BITE_TEST_ASSERT(bite_read(&bite) == 0x07); /* MSB is masked */
+	bite_end(&bite);
+
+	/* TODO more use cases */
+}
+
 int main()
 {
 	/* Set this flag to true if `bite_test_brute` has failed */
@@ -246,8 +333,12 @@ int main()
 	bite_test_brute(BITE_ORDER_LIL_ENDIAN, verbose);
 	bite_test_end();
 
-	bite_test_begin("bite_test_use_cases", "");
-	bite_test_use_cases();
+	bite_test_begin("bite_test_use_cases_be", "");
+	bite_test_use_cases_be();
+	bite_test_end();
+
+	bite_test_begin("bite_test_use_cases_le", "");
+	bite_test_use_cases_le();
 	bite_test_end();
 
 	return 0;
