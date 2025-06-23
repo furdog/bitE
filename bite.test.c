@@ -87,7 +87,8 @@ void bite_test_brute(enum bite_order order, bool verbose)
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;
 
-	bite_init(&bite, buf_a, 8);
+	/* Limit BITE bufer with 4 bytes to test buffer overflow debug! */
+	bite_init(&bite, buf_a, 4);
 	if (verbose == false) {
 #ifdef BITE_DEBUG
 		bite.debug = false;

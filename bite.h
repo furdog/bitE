@@ -14,6 +14,10 @@
 #pragma message ( "Pedantic mode has been activated!" )
 #endif /* BITE_PEDANTIC */
 
+#ifdef    BITE_DEBUG_BUFFER_OVERFLOW
+#pragma message ( "Buffer overflow check activated!" )
+#endif /* BITE_PEDANTIC */
+
 /******************************************************************************
  * CLASS
  *****************************************************************************/
@@ -284,6 +288,42 @@ void _bite_remove_flag(struct bite *self, uint8_t flag)
 	self->flags &= ~flag;
 }
 
+#ifdef BITE_DEBUG_BUFFER_OVERFLOW
+/* TODO MISRA COMPILANCE
+ * TODO Less ugly! (REFACTOR) */
+void _bite_debug_buf_overflow(struct bite *self, uint8_t chunk_len,
+			      uint8_t *result)
+{
+	{
+		/* Check 2 pointers (consider fragmentation) (UGLY PART) */
+		uint8_t *buf_ptr[2];
+
+		buf_ptr[0] = result;
+		buf_ptr[1] = result;
+
+		/* Pay attention to fragmented buffer (UGLY PART) */
+		if (self->_ofs != 0U && chunk_len > self->_ofs) {
+			if (self->_order == (uint8_t)BITE_ORDER_BIG_ENDIAN) {
+				buf_ptr[1] = &result[1];
+			} else {
+				buf_ptr[1] = &result[-1];
+			}
+		}
+
+		/* MISRA incompilant (UGLY PART) */
+		_bite_debug_int(self, "buf index[0]: ",
+				buf_ptr[0] - self->_data);
+		assert((buf_ptr[0] >= self->_data) &&
+		       (buf_ptr[0] < &self->_data[self->_data_size]));
+
+		_bite_debug_int(self, "buf index[1]: ",
+				buf_ptr[1] - self->_data);
+		assert((buf_ptr[1] >= self->_data) &&
+		       (buf_ptr[1] < &self->_data[self->_data_size]));
+	}
+}
+#endif
+
 uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 {
 	uint8_t *result = NULL;
@@ -309,12 +349,17 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 				      (self->_ofs_bits + self->_iter_bits) / 8U
 				 ];
 		} else {
+			/* TODO interpretable, less ugly */
 			result = &self->_data[
 				    ((self->_ofs_bits + self->_len_bits - 1U) -
 				      self->_iter_bits) / 8U
 				 ];
 		}
-	
+
+#ifdef BITE_DEBUG_BUFFER_OVERFLOW
+		_bite_debug_buf_overflow(self, *chunk_len, result);
+#endif
+
 		self->_iter_bits += _chunk_len;
 	}
 

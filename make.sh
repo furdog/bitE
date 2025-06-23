@@ -9,7 +9,8 @@ python ${MISRA}/misra.py ${HEADER}.dump \
 
 gcc ${SOURCE} -std=c89 -pedantic -Wall -Wextra -g \
 	      -fsanitize=undefined -fsanitize-undefined-trap-on-error \
-	      -DBITE_DEBUG -DBITE_COLOR #-DBITE_PEDANTIC
+	      -DBITE_DEBUG -DBITE_COLOR -DBITE_DEBUG_BUFFER_OVERFLOW \
+	      #-DBITE_PEDANTIC
 
 gcc ${SOURCE} -std=c89 -pedantic -Wall -Wextra -O3 -S &>/dev/null \
 	      -masm=intel #-fverbose-asm
