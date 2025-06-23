@@ -457,7 +457,7 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 		last_bit_index = (((ofs_bits ^ 7U) + len_bits) - 1U);
 	} else {
 		self->_ofs = (ofs_bits + len_bits) % 8U;
-		last_bit_index = (ofs_bits + len_bits);
+		last_bit_index = (ofs_bits + len_bits) - 1U;
 	}
 
 	/* If last bit index goes beyond buffer - set error flag */
