@@ -321,6 +321,33 @@ void bite_test_use_cases_le()
 	/* TODO more use cases */
 }
 
+void bite_test_special()
+{
+	struct bite bite;
+	uint8_t buf[8] = {0};
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+
+	/* Check for buffer overflow false positives */
+	bite_init(&bite, buf, 1);
+	bite_begin(&bite, 7, 1, BITE_ORDER_LIL_ENDIAN);
+	bite_write(&bite, 0xFF);
+	bite_end(&bite);
+
+	BITE_TEST_ASSERT(bite.flags == BITE_FLAG_NONE);
+
+
+	/* Check for buffer overflow false positives */
+	bite_init(&bite, buf, 1);
+	bite_begin(&bite, 0, 2, BITE_ORDER_BIG_ENDIAN);
+	bite_write(&bite, 0xFF);
+	bite_end(&bite);
+
+	BITE_TEST_ASSERT(bite.flags ==
+			 (BITE_FLAG_MEMORY | BITE_FLAG_UNDERFLOW));
+}
+
 int main()
 {
 	/* Set this flag to true if `bite_test_brute` has failed */
@@ -340,6 +367,10 @@ int main()
 
 	bite_test_begin("bite_test_use_cases_le", "");
 	bite_test_use_cases_le();
+	bite_test_end();
+
+	bite_test_begin("bite_test_special", "");
+	bite_test_special();
 	bite_test_end();
 
 	return 0;
