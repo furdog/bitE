@@ -107,7 +107,10 @@ Reads up to 8 bits from the current range and advances the internal stream itera
 
 ## Debugging
 
-To enable **verbose and color-coded debug output** for all read/write operations, compile your code with the `-DBITE_DEBUG` flag. This provides detailed tracing, including binary representations and intermediate calculations, invaluable for development and troubleshooting.
+To enable **debug output** for all read/write operations, compile your code with the `-DBITE_DEBUG` flag. This provides detailed tracing, including binary representations and intermediate calculations, invaluable for development and troubleshooting.
+To enable **color coded output** use `-DBITE_COLOR` flag.
+To enable **pedantic assertions** use `-DBITE_PEDANTIC` flag. **WARNING!** Pedantic assertions will treat all flags as critical!
+To enable **Buffer overflow assertions** use `-DBITE_DEBUG_BUFFER_OVERFLOW` flag. **WARNING** This must only be enabled to debug bitE library itself!
 
 -----
 

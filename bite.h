@@ -10,13 +10,21 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#ifdef    BITE_DEBUG
+#pragma message ( "Debug output has been activated!" )
+#endif /* BITE_DEBUG */
+
+#ifdef    BITE_COLOR
+#pragma message ( "ANSI color codes used for output!" )
+#endif /* BITE_COLOR */
+
 #ifdef    BITE_PEDANTIC
-#pragma message ( "Pedantic mode has been activated!" )
+#pragma message ( "Pedantic assertions has been activated!" )
 #endif /* BITE_PEDANTIC */
 
 #ifdef    BITE_DEBUG_BUFFER_OVERFLOW
-#pragma message ( "Buffer overflow check activated!" )
-#endif /* BITE_PEDANTIC */
+#pragma message ( "Buffer overflow assertions has been activated!" )
+#endif /* BITE_DEBUG_BUFFER_OVERFLOW */
 
 /******************************************************************************
  * CLASS
@@ -288,7 +296,7 @@ void _bite_remove_flag(struct bite *self, uint8_t flag)
 	self->flags &= ~flag;
 }
 
-#ifdef BITE_DEBUG_BUFFER_OVERFLOW
+#ifdef    BITE_DEBUG_BUFFER_OVERFLOW
 /* TODO Less ugly! (REFACTOR) */
 void _bite_debug_buf_overflow(struct bite *self, uint8_t chunk_len,
 			      size_t buf_idx)
@@ -296,7 +304,7 @@ void _bite_debug_buf_overflow(struct bite *self, uint8_t chunk_len,
 	{
 		size_t _buf_idx = buf_idx;
 
-		_bite_debug_int(self, "buf idx: ", _buf_idx);
+		_bite_debug_int(self, "buf idx", _buf_idx);
 		assert(_buf_idx < self->_data_size);
 
 		/* Pay attention to fragmented buffer (UGLY PART) */
@@ -307,12 +315,12 @@ void _bite_debug_buf_overflow(struct bite *self, uint8_t chunk_len,
 				_buf_idx -= 1U;
 			}
 
-			_bite_debug_int(self, "buf idx: ", _buf_idx);
+			_bite_debug_int(self, "buf idx", _buf_idx);
 			assert(_buf_idx < self->_data_size);
 		}
 	}
 }
-#endif
+#endif /* BITE_DEBUG_BUFFER_OVERFLOW */
 
 uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 {
