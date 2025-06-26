@@ -31,10 +31,20 @@
 ### Initialization
 
 ```c
-void bite_init(struct bite *self, uint8_t *buf, size_t size);
+void bite_init(struct bite *self);
 ```
 
-Initializes the `bitE` context with the provided data buffer and its size.
+Initializes the `bitE` context.
+
+-----
+
+```c
+void bite_set_buf(struct bite *self, uint8_t *buf, size_t size);
+```
+
+Gives the `bitE` data buffer it has to operate on.
+
+  * This function may set various error flags.
 
 -----
 

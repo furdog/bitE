@@ -372,14 +372,12 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 /**
  * @brief Initialize bite context.
  * @param self Context
- * @param buf  Data buffer
- * @param size Data buffer size (in bytes)
  */
-void bite_init(struct bite *self, uint8_t *buf, size_t size)
+void bite_init(struct bite *self)
 {
 	/* Config */
-	self->_data      = buf;
-	self->_data_size = size;
+	self->_data      = NULL;
+	self->_data_size = 0;
 
 	self->_ofs_bits = 0U;
 	self->_len_bits = 0U;
@@ -406,6 +404,28 @@ void bite_init(struct bite *self, uint8_t *buf, size_t size)
 					"unexpected crashes! Please disable "
 					"pedantic mode in production code!");
 #endif /* BITE_PEDANTIC */
+
+	_bite_debug_pop(self);
+}
+
+/**
+ * @brief Set pointer to a buffer bitE will operate on.
+ * @param self Context
+ * @param buf  Data buffer
+ * @param size Data buffer size (in bytes)
+ */
+void bite_set_buf(struct bite *self, uint8_t *buf, size_t size)
+{
+	_bite_debug_push(self, "bite_set_buf");
+
+	if (self->_iter_bits < self->_len_bits) {
+		_bite_debug_str(self,
+			    BITE_ERR"Can not change buffer during operation!");
+		_bite_set_flag(self, BITE_FLAG_UNDEFINED);
+	} else {
+		self->_data      = buf;
+		self->_data_size = size;
+	}
 
 	_bite_debug_pop(self);
 }

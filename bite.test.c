@@ -88,7 +88,8 @@ void bite_test_brute(enum bite_order order, bool verbose)
 	BITE_TEST_HIGHLIGHT_SECTION;
 
 	/* Limit BITE bufer with 4 bytes to test buffer overflow debug! */
-	bite_init(&bite, buf_a, 4);
+	bite_init(&bite);
+	bite_set_buf(&bite, buf_a, 4);
 	if (verbose == false) {
 #ifdef BITE_DEBUG
 		bite.debug = false;
@@ -155,7 +156,8 @@ void bite_test_use_cases_be()
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;
 
-	bite_init(&bite, buf, 8);
+	bite_init(&bite);
+	bite_set_buf(&bite, buf, 8);
 
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;	
@@ -242,7 +244,8 @@ void bite_test_use_cases_le()
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;
 
-	bite_init(&bite, buf, 8);
+	bite_init(&bite);
+	bite_set_buf(&bite, buf, 8);
 
 	/*********************************************************************/
 	BITE_TEST_HIGHLIGHT_SECTION;	
@@ -330,7 +333,8 @@ void bite_test_special()
 	BITE_TEST_HIGHLIGHT_SECTION;
 
 	/* Check for buffer overflow false positives */
-	bite_init(&bite, buf, 1);
+	bite_init(&bite);
+	bite_set_buf(&bite, buf, 1);
 	bite_begin(&bite, 7, 1, BITE_ORDER_LIL_ENDIAN);
 	bite_write(&bite, 0xFF);
 	bite_end(&bite);
@@ -339,7 +343,8 @@ void bite_test_special()
 
 
 	/* Check for buffer overflow false positives */
-	bite_init(&bite, buf, 1);
+	bite_init(&bite);
+	bite_set_buf(&bite, buf, 1);
 	bite_begin(&bite, 0, 2, BITE_ORDER_BIG_ENDIAN);
 	bite_write(&bite, 0xFF);
 	bite_end(&bite);
