@@ -346,7 +346,15 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 		if (self->_order == (uint8_t)BITE_ORDER_BIG_ENDIAN) {
 			buf_idx = (self->_ofs_bits + self->_iter_bits) / 8U;
 		} else {
-			/* TODO interpretable, less ugly */
+			/*         VISUAL EXAMPLE          */
+			/* ofs = 8, len = 8                */
+			/*                                 */
+			/*         ofs|       len|         */
+			/*            .          .         */
+			/* 0000 0000  1111 1111  0000 0000 */
+			/*                    ^            */
+			/*               len-1|            */
+			/*                                 */
 			buf_idx = ((self->_ofs_bits + self->_len_bits - 1U) -
 				    self->_iter_bits) / 8U;
 		}
