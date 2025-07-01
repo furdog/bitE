@@ -36,13 +36,13 @@
  */
 enum bite_order
 {
-	BITE_ORDER_BIG_ENDIAN = 0, /**< Big endian */
-	BITE_ORDER_MOTOROLA   = 0, /**< Big endian */
-	BITE_ORDER_DBC_0      = 0, /**< Big endian */
+	BITE_ORDER_BIG_ENDIAN = 1, /**< Big endian */
+	BITE_ORDER_MOTOROLA   = 1, /**< Big endian */
+	BITE_ORDER_DBC_0      = 1, /**< Big endian */
 
-	BITE_ORDER_LIL_ENDIAN = 1, /**< Little endian */
-	BITE_ORDER_INTEL      = 1, /**< Little endian */
-	BITE_ORDER_DBC_1      = 1  /**< Little endian */
+	BITE_ORDER_LIL_ENDIAN = -1, /**< Little endian */
+	BITE_ORDER_INTEL      = -1, /**< Little endian */
+	BITE_ORDER_DBC_1      = -1  /**< Little endian */
 };
 
 /**
@@ -68,14 +68,15 @@ struct bite {
 
 	size_t _ofs_bits; /**< Start bit offset */
 	size_t _len_bits; /**< Total bit length */
+	int8_t _order;    /**< Byte order */
 
 	/* Runtime */
 	size_t  _iter_bits; /**< Iteration offset */
 	uint8_t  flags;     /**< Status flags */
-	uint8_t _order;     /**< Byte order */
 
-	/* Runtime (lazy evaluation) */
-	uint8_t _ofs; /**< Offset from LSB inside every byte */
+	/* Precalculated */
+	uint8_t _ofs;  /**< Offset from LSB inside every byte */
+	size_t  _base; /**< Base offset inside data buffer */
 
 #ifdef BITE_DEBUG
 	bool debug;  /**< Debug mode flag */
@@ -309,11 +310,7 @@ void _bite_debug_buf_overflow(struct bite *self, uint8_t chunk_len,
 
 		/* Pay attention to fragmented buffer (UGLY PART) */
 		if ((self->_ofs != 0U) && (chunk_len > self->_ofs)) {
-			if (self->_order == (uint8_t)BITE_ORDER_BIG_ENDIAN) {
-				_buf_idx += 1U;
-			} else {
-				_buf_idx -= 1U;
-			}
+			_buf_idx += (size_t)self->_order;
 
 			_bite_debug_int(self, "buf idx", _buf_idx);
 			assert(_buf_idx < self->_data_size);
@@ -338,32 +335,17 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 		_bite_set_flag(self, BITE_FLAG_OVERFLOW);
 	/* Return pointer to data if everything is ok */
 	} else {
-		size_t  buf_idx;
 		size_t _chunk_len = self->_len_bits - self->_iter_bits;
 		if (_chunk_len > 8U) { _chunk_len = 8U; }
 		*chunk_len = _chunk_len;
 
-		if (self->_order == (uint8_t)BITE_ORDER_BIG_ENDIAN) {
-			buf_idx = (self->_ofs_bits + self->_iter_bits) / 8U;
-		} else {
-			/*         VISUAL EXAMPLE          */
-			/* ofs = 8, len = 8                */
-			/*                                 */
-			/*         ofs|       len|         */
-			/*            .          .         */
-			/* 0000 0000  1111 1111  0000 0000 */
-			/*                    ^            */
-			/*               len-1|            */
-			/*                                 */
-			buf_idx = ((self->_ofs_bits + self->_len_bits - 1U) -
-				    self->_iter_bits) / 8U;
-		}
-
 #ifdef BITE_DEBUG_BUFFER_OVERFLOW
-		_bite_debug_buf_overflow(self, *chunk_len, buf_idx);
+		_bite_debug_buf_overflow(self, *chunk_len, self->_base);
 #endif
 
-		result = &self->_data[buf_idx];
+		result = &self->_data[self->_base];
+
+		self->_base += (size_t)self->_order;
 
 		self->_iter_bits += _chunk_len;
 	}
@@ -395,8 +377,9 @@ void bite_init(struct bite *self)
 	self-> flags     = 0U;
 	self->_order     = BITE_ORDER_BIG_ENDIAN;
 
-	/* Runtime (lazy evaluation) */
-	self->_ofs = 0;
+	/* Precalculated */
+	self->_ofs  = 0;
+	self->_base = 0;
 
 #ifdef    BITE_DEBUG
 	self->debug = true;
@@ -474,14 +457,28 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 		_bite_remove_flag(self, BITE_FLAG_UNDERFLOW);
 	}
 
-	/* TODO more Lazy evaluations */
+	/* TODO more precalculations */
 
-	/* Calculate offset inside every byte and last bit index */
+	/* Calculate offset inside every byte, base offset and last bit idx */
 	if (order == BITE_ORDER_BIG_ENDIAN) {
-		self->_ofs = (ofs_bits + 1U) % 8U;
+		self->_ofs  = (ofs_bits + 1U) % 8U;
+		self->_base = ofs_bits / 8U;
+
 		last_bit_index = (((ofs_bits ^ 7U) + len_bits) - 1U);
 	} else {
 		self->_ofs = (ofs_bits + len_bits) % 8U;
+
+		/*       VISUAL EXPLAINATION       */
+		/* ofs = 8, len = 8                */
+		/*                                 */
+		/*         ofs|       len|         */
+		/*            .          .         */
+		/* 0000 0000  1111 1111  0000 0000 */
+		/*                    ^            */
+		/*               len-1|            */
+		/*                                 */
+		self->_base = (ofs_bits + len_bits - 1U) / 8U;
+
 		last_bit_index = (ofs_bits + len_bits) - 1U;
 	}
 
@@ -599,11 +596,7 @@ void bite_write(struct bite *self, uint8_t data)
 		uint8_t src;
 		uint8_t dst;
 
-		if (self->_order == (uint8_t)BITE_ORDER_BIG_ENDIAN) {
-			lsb = &d[1];
-		} else {
-			lsb = &d[-1];
-		}
+		lsb = &d[self->_order];
 
 		/* MSB goes into first byte */
 		_bite_debug_str(self, "");
@@ -733,11 +726,7 @@ uint8_t bite_read(struct bite *self)
 		/* Temporary variables */
 		uint8_t src;
 
-		if (self->_order == (uint8_t)BITE_ORDER_BIG_ENDIAN) {
-			lsb = &d[1];
-		} else {
-			lsb = &d[-1];
-		}
+		lsb = &d[self->_order];
 
 		/* MSB goes into first byte */
 		_bite_debug_str(self, "");
