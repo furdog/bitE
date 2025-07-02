@@ -58,13 +58,15 @@ void bite_begin(struct bite *self, size_t ofs_bits, size_t len_bits,
 Starts a bit-wise operation on a specified bit range, adhering to the CAN DBC format. The `order` parameter defines endianness:
 
 ```c
-BITE_ORDER_BIG_ENDIAN = 0, /**< Big endian */
-BITE_ORDER_MOTOROLA   = 0, /**< Big endian */
-BITE_ORDER_DBC_0      = 0, /**< Big endian */
+/** Big endian */
+BITE_ORDER_BIG_ENDIAN
+BITE_ORDER_MOTOROLA
+BITE_ORDER_DBC_0
 
-BITE_ORDER_LIL_ENDIAN = 1, /**< Little endian */
-BITE_ORDER_INTEL      = 1, /**< Little endian */
-BITE_ORDER_DBC_1      = 1  /**< Little endian */
+/** Little endian */
+BITE_ORDER_LIL_ENDIAN
+BITE_ORDER_INTEL
+BITE_ORDER_DBC_1
 ```
 
   * This function may set various error flags.
@@ -147,7 +149,7 @@ gcc -DBITE_DEBUG ...
 
   * Ensure `bite_read` and `bite_write` are not used concurrently within the same context.
   * Optimize by reducing unnecessary variable calculations in read/write calls.
-  * Enhance clarity of tests, use cases, and the README with more descriptive content.
+  * ~~Enhance clarity of tests~~, use cases, and the README with more descriptive content.
 
 -----
 
