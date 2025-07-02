@@ -339,8 +339,9 @@ void bite_test_special()
 	bite_write(&bite, 0xFF);
 	bite_end(&bite);
 
-	BITE_TEST_ASSERT(bite.flags == BITE_FLAG_NONE);
-
+#ifndef   BITE_UNSAFE_OPTIMIZATIONS
+	BITE_TEST_ASSERT(bite_get_flags(&bite) == BITE_FLAG_NONE);
+#endif /* BITE_UNSAFE_OPTIMIZATIONS */
 
 	/* Check for buffer overflow false positives */
 	bite_init(&bite);
@@ -349,8 +350,10 @@ void bite_test_special()
 	bite_write(&bite, 0xFF);
 	bite_end(&bite);
 
-	BITE_TEST_ASSERT(bite.flags ==
+#ifndef   BITE_UNSAFE_OPTIMIZATIONS
+	BITE_TEST_ASSERT(bite_get_flags(&bite) ==
 			 (BITE_FLAG_MEMORY | BITE_FLAG_UNDERFLOW));
+#endif /* BITE_UNSAFE_OPTIMIZATIONS */
 }
 
 int main()

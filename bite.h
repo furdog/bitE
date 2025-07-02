@@ -26,6 +26,12 @@
 #pragma message ( "Buffer overflow assertions has been activated!" )
 #endif /* BITE_DEBUG_BUFFER_OVERFLOW */
 
+/* Unsafe optimizations disable safety functionality completely
+ * It's advised to compile this code with O3 parameter to strip dead code */
+#ifdef    BITE_UNSAFE_OPTIMIZATIONS
+#pragma message ( "Unsafe optimizations has been activated!" )
+#endif /* BITE_UNSAFE_OPTIMIZATIONS */
+
 /******************************************************************************
  * CLASS
  *****************************************************************************/
@@ -47,7 +53,7 @@ enum bite_order
 
 /**
  * @enum bite_flags
- * @brief Status flags.
+ * @brief Error flags.
  */
 enum bite_flags {
 	BITE_FLAG_NONE,           /**< No flag */
@@ -72,7 +78,9 @@ struct bite {
 
 	/* Runtime */
 	size_t  _iter_bits; /**< Iteration offset */
-	uint8_t  flags;     /**< Status flags */
+#ifndef   BITE_UNSAFE_OPTIMIZATIONS
+	uint8_t _flags;     /**< Error flags */
+#endif /* BITE_UNSAFE_OPTIMIZATIONS */
 
 	/* Precalculated */
 	uint8_t _ofs;  /**< Offset from LSB inside every byte */
@@ -264,13 +272,22 @@ void _bite_debug_pop(struct bite *self)
 }
 
 #endif /* BITE_DEBUG */
-
 /******************************************************************************
  * PRIVATE
  *****************************************************************************/
+uint8_t _bite_get_flags(struct bite *self)
+{
+	(void)self;
+#ifndef   BITE_UNSAFE_OPTIMIZATIONS
+	return self->_flags;
+#else   /* BITE_UNSAFE_OPTIMIZATIONS */
+	return 0U;
+#endif  /* BITE_UNSAFE_OPTIMIZATIONS */
+}
+
 void _bite_set_flag(struct bite *self, uint8_t flag)
 {
-	if ((self->flags & flag) == 0U) {
+	if ((_bite_get_flags(self) | flag) != _bite_get_flags(self)) {
 		_bite_debug_push(self, "_bite_set_flag");
 		_bite_debug_flag(self, flag);
 		_bite_debug_pop(self);
@@ -283,18 +300,23 @@ void _bite_set_flag(struct bite *self, uint8_t flag)
 #endif /*BITE_PEDANTIC*/
 	}
 
-	self->flags |= flag;
+#ifndef   BITE_UNSAFE_OPTIMIZATIONS
+	self->_flags |= flag;
+#endif  /* BITE_UNSAFE_OPTIMIZATIONS */
 }
 
 void _bite_remove_flag(struct bite *self, uint8_t flag)
 {
-	if ((self->flags & flag) > 0U) {
+	if ((_bite_get_flags(self) & (uint8_t)~flag) != _bite_get_flags(self))
+	{
 		_bite_debug_push(self, "_bite_remove_flag");
 		_bite_debug_flag(self, flag);
 		_bite_debug_pop(self);
 	}
 
-	self->flags &= ~flag;
+#ifndef   BITE_UNSAFE_OPTIMIZATIONS
+	self->_flags &= ~flag;
+#endif /* BITE_UNSAFE_OPTIMIZATIONS */
 }
 
 #ifdef    BITE_DEBUG_BUFFER_OVERFLOW
@@ -325,8 +347,8 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 	
 	_bite_debug_push(self, "_bite_get_buf");
 
-	if ((self->flags & ((uint8_t)BITE_FLAG_UNDEFINED |
-	                    (uint8_t)BITE_FLAG_MEMORY    )) > 0U) {
+	if ((_bite_get_flags(self) & ((uint8_t)BITE_FLAG_UNDEFINED |
+	                              (uint8_t)BITE_FLAG_MEMORY    )) > 0U) {
 			_bite_debug_str(self,
 				BITE_ERR"operation is undefined!");
 	} else if (self->_iter_bits >= self->_len_bits) {
@@ -358,7 +380,6 @@ uint8_t *_bite_get_buf(struct bite *self, uint8_t *chunk_len)
 /******************************************************************************
  * PUBLIC
  *****************************************************************************/
-
 /**
  * @brief Initialize bite context.
  * @param self Context
@@ -374,7 +395,9 @@ void bite_init(struct bite *self)
 
 	/* Runtime */
 	self->_iter_bits = 0U;
-	self-> flags     = 0U;
+#ifndef   BITE_UNSAFE_OPTIMIZATIONS
+	self->_flags     = 0U;
+#endif /* BITE_UNSAFE_OPTIMIZATIONS */
 	self->_order     = BITE_ORDER_BIG_ENDIAN;
 
 	/* Precalculated */
@@ -387,14 +410,27 @@ void bite_init(struct bite *self)
 #endif /* BITE_DEBUG */
 	_bite_debug_push(self, "bite_init");
 	_bite_debug_str(self, BITE_WARN"debug mode is activated! This "
-			      "may cause serious performance impact!");
+			      "WILL cause serious performance impact!");
 
 #ifdef    BITE_PEDANTIC
 	_bite_debug_str(self, BITE_WARN"pedantic mode is activated! This "
-					"enables assertions and may lead to "
+					"enables assertions and MAY lead to "
 					"unexpected crashes! Please disable "
 					"pedantic mode in production code!");
 #endif /* BITE_PEDANTIC */
+
+#ifdef    BITE_DEBUG_BUFFER_OVERFLOW
+	_bite_debug_str(self, BITE_WARN"Buffer overflow checks enabled! "
+					"This is only useful for bitE "
+					"library internal test purposes.");
+#endif /* BITE_DEBUG_BUFFER_OVERFLOW */
+
+#ifdef    BITE_UNSAFE_OPTIMIZATIONS
+	_bite_debug_str(self, BITE_WARN"Unsafe optimizations enabled! This "
+					"MAY lead to undefined behaviour! "
+					"Keep this only in case of 100% "
+					"test coverage.");
+#endif /* BITE_UNSAFE_OPTIMIZATIONS */
 
 	_bite_debug_pop(self);
 }
@@ -787,5 +823,16 @@ uint8_t bite_read(struct bite *self)
 
 	return r;
 }
+
+#ifndef   BITE_UNSAFE_OPTIMIZATIONS
+/**
+ * @brief Get internal error flags (disabled if BITE_UNSAFE_OPTIMIZATIONS set).
+ * @param self Context
+ */
+uint8_t bite_get_flags(struct bite *self)
+{
+	return self->_flags;
+}
+#endif  /* BITE_UNSAFE_OPTIMIZATIONS */
 
 #endif /* BITE_GUARD */
