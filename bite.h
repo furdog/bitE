@@ -567,7 +567,7 @@ void bite_rewind(struct bite *self)
 	self->_iter_bits = 0U;
 	
 	/* Hotfix: reset base pointer */
-	if (self->_order == BITE_ORDER_BIG_ENDIAN) {
+	if (self->_order == (int8_t)BITE_ORDER_BIG_ENDIAN) {
 		self->_base = self->_ofs_bits / 8U;
 	} else {
 		self->_base = (self->_ofs_bits + self->_len_bits - 1U) / 8U;
@@ -831,16 +831,19 @@ uint8_t bite_read(struct bite *self)
 	return r;
 }
 
-/* TODO, WIP, REVIEW, TEST, OPTIMIZE */
+/* TODO, WIP, REVIEW, TEST, OPTIMIZE, DEBUG, MAKE CHECKS 
+ * Ridiculous and tricky! Probably better to change io order,
+ * so lsb goes first. REFACTOR!!! */
 /**
  * @brief Write 16 bit integer to stream (sign doesn't matter)
  * @param self Context
  */
 void bite_write_16(struct bite *self, uint16_t data)
 {
-	/* PROBABLY BUGGY TODO CHECKME! */
-	bite_write(self, (uint8_t)((data & 0x00FFU) >> 0));
-	bite_write(self, (uint8_t)((data & 0xFF00U) >> 8));
+	uint16_t window = data << (16U - self->_len_bits);
+
+	bite_write(self, (uint8_t)((window & 0xFF00U) >> 8U));
+	bite_write(self, (uint8_t)((data   & 0x00FFU) >> 0U));
 }
 
 /**
@@ -850,17 +853,11 @@ void bite_write_16(struct bite *self, uint16_t data)
 uint16_t bite_read_u16(struct bite *self)
 {
 	uint16_t result = 0U;
-	uint8_t  offset = self->_len_bits % 8U;
 
-	/* Offset can't be zero */
-	if (offset == 0U) {
-		offset = 8U;
-	}
-
-	result |= (uint16_t)bite_read(self) << offset;
+	result |= (uint16_t)bite_read(self) << (8U - (16U - self->_len_bits));
 	result |= (uint16_t)bite_read(self);
 
-	return (int16_t)result;
+	return result;
 }
 
 /**

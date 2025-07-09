@@ -167,7 +167,7 @@ void bite_test_use_cases_be()
 	 * For BIG ENDIAN mode bits are numbered from MSB(7) to LSB(0) */
 	bite_begin(&bite, 7, 8, BITE_ORDER_BIG_ENDIAN);
 
-	/* Write operation always accepts bytes in BIG ENDIAN order,
+	/* Write operation ALWAYS accepts most significant bits first,
 	 * regardless of bitE setup */
 	bite_write(&bite, 0xAB);
 	bite_end(&bite);
@@ -255,7 +255,7 @@ void bite_test_use_cases_le()
 	 * For LITTLE ENDIAN mode bits are numbered from LSB(0) to MSB(7) */
 	bite_begin(&bite, 0, 8, BITE_ORDER_LIL_ENDIAN);
 
-	/* Write operation always accepts bytes in BIG ENDIAN order,
+	/* Write operation ALWAYS accepts most significant bits first,
 	 * regardless of bitE setup */
 	bite_write(&bite, 0xAB);
 	bite_end(&bite);
@@ -371,6 +371,42 @@ void bite_test_special()
 
 	bite_begin(&bite, 7, 16, BITE_ORDER_BIG_ENDIAN);
 	BITE_TEST_ASSERT(bite_read_u16(&bite) == (uint16_t)-1);
+	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	bite_init(&bite);
+	bite_set_buf(&bite, buf, 8);
+
+	/* Test 16bit write/read */
+	bite_begin(&bite, 7, 10, BITE_ORDER_BIG_ENDIAN);
+	bite_write_16(&bite, 0x3CD);
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 7, 10, BITE_ORDER_BIG_ENDIAN);
+	BITE_TEST_ASSERT(bite_read_u16(&bite) == 0x3CD);
+	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	bite_init(&bite);
+	bite_set_buf(&bite, buf, 8);
+
+	/* Test 16bit write/read */
+	bite_begin(&bite, 7, 10, BITE_ORDER_LIL_ENDIAN);
+	bite_write_16(&bite, 0x3CD);
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 7, 10, BITE_ORDER_LIL_ENDIAN);
+	BITE_TEST_ASSERT(bite_read_u16(&bite) == 0x3CD);
 	bite_end(&bite);
 }
 
