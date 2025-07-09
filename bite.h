@@ -824,6 +824,41 @@ uint8_t bite_read(struct bite *self)
 	return r;
 }
 
+/* TODO, WIP, REVIEW, TEST, OPTIMIZE */
+/**
+ * @brief Read 16 bit integer from stream (unsigned)
+ * @param self Context
+ */
+int16_t bite_read_u16(struct bite *self)
+{
+	uint16_t result = 0U;
+	uint8_t  offset = self->_len_bits % 8U;
+
+	result |= (uint16_t)bite_read(self) << offset;
+	result |= (uint16_t)bite_read(self);
+
+	return (int16_t)result;
+}
+
+/**
+ * @brief Read 16 bit integer from stream (signed)
+ * @param self Context
+ */
+int16_t bite_read_i16(struct bite *self)
+{
+	uint16_t result = 0U;
+	uint8_t  sign_bit_offset = self->_len_bits - 1U;
+
+	result = bite_read_u16(self);
+
+	/* Check sign, if present - invert MSB */
+	if (result & (1U << sign_bit_offset)) {
+		result |= (0xFFU << sign_bit_offset);
+	}
+
+	return (int16_t)result;
+}
+
 #ifndef   BITE_UNSAFE_OPTIMIZATIONS
 /**
  * @brief Get internal error flags (disabled if BITE_UNSAFE_OPTIMIZATIONS set).
