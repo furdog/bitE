@@ -150,6 +150,8 @@ gcc -DBITE_DEBUG ...
   * Ensure `bite_read` and `bite_write` are not used concurrently within the same context.
   * Optimize by reducing unnecessary variable calculations in read/write calls.
   * ~~Enhance clarity of tests~~, use cases, and the README with more descriptive content.
+  * Bring back state machine approach
+  * Add **signed** attribute for signed integers
 
 -----
 
