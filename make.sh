@@ -1,4 +1,4 @@
-MISRA="../misra"
+MISRA="../../../misra"
 HEADER="bite.h"
 SOURCE="bite.test.c"
 

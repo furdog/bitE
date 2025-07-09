@@ -362,10 +362,9 @@ void bite_test_special()
 	bite_init(&bite);
 	bite_set_buf(&bite, buf, 8);
 
-	/* Test 16bit read */
+	/* Test 16bit write/read */
 	bite_begin(&bite, 7, 16, BITE_ORDER_BIG_ENDIAN);
-	bite_write(&bite, 0xFF);
-	bite_write(&bite, 0xFF);
+	bite_write_16(&bite, -1);
 	bite_end(&bite);
 
 	bite_test_print_buf(buf);

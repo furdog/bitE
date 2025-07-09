@@ -826,6 +826,16 @@ uint8_t bite_read(struct bite *self)
 
 /* TODO, WIP, REVIEW, TEST, OPTIMIZE */
 /**
+ * @brief Write 16 bit integer to stream (sign doesn't matter)
+ * @param self Context
+ */
+void bite_write_16(struct bite *self, uint16_t data)
+{
+	bite_write(self, (uint8_t)((data & 0x00FFU) >> 0));
+	bite_write(self, (uint8_t)((data & 0xFF00U) >> 8));
+}
+
+/**
  * @brief Read 16 bit integer from stream (unsigned)
  * @param self Context
  */
