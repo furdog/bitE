@@ -566,6 +566,13 @@ void bite_rewind(struct bite *self)
 
 	self->_iter_bits = 0U;
 	
+	/* Hotfix: reset base pointer */
+	if (self->_order == BITE_ORDER_BIG_ENDIAN) {
+		self->_base = self->_ofs_bits / 8U;
+	} else {
+		self->_base = (self->_ofs_bits + self->_len_bits - 1U) / 8U;
+	}
+
 	_bite_debug_pop(self);
 }
 
