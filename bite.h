@@ -838,6 +838,7 @@ uint8_t bite_read(struct bite *self)
  */
 void bite_write_16(struct bite *self, uint16_t data)
 {
+	/* PROBABLY BUGGY TODO CHECKME! */
 	bite_write(self, (uint8_t)((data & 0x00FFU) >> 0));
 	bite_write(self, (uint8_t)((data & 0xFF00U) >> 8));
 }
