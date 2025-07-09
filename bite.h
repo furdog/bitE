@@ -829,10 +829,15 @@ uint8_t bite_read(struct bite *self)
  * @brief Read 16 bit integer from stream (unsigned)
  * @param self Context
  */
-int16_t bite_read_u16(struct bite *self)
+uint16_t bite_read_u16(struct bite *self)
 {
 	uint16_t result = 0U;
 	uint8_t  offset = self->_len_bits % 8U;
+
+	/* Offset can't be zero */
+	if (offset == 0U) {
+		offset = 8U;
+	}
 
 	result |= (uint16_t)bite_read(self) << offset;
 	result |= (uint16_t)bite_read(self);
@@ -852,8 +857,8 @@ int16_t bite_read_i16(struct bite *self)
 	result = bite_read_u16(self);
 
 	/* Check sign, if present - invert MSB */
-	if (result & (1U << sign_bit_offset)) {
-		result |= (0xFFU << sign_bit_offset);
+	if ((result & (1U << (uint16_t)sign_bit_offset)) > 0U) {
+		result |= (0xFFU << (uint16_t)sign_bit_offset);
 	}
 
 	return (int16_t)result;

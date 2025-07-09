@@ -354,6 +354,25 @@ void bite_test_special()
 	BITE_TEST_ASSERT(bite_get_flags(&bite) ==
 			 (BITE_FLAG_MEMORY | BITE_FLAG_UNDERFLOW));
 #endif /* BITE_UNSAFE_OPTIMIZATIONS */
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	bite_init(&bite);
+	bite_set_buf(&bite, buf, 8);
+
+	/* Test 16bit read */
+	bite_begin(&bite, 7, 16, BITE_ORDER_BIG_ENDIAN);
+	bite_write(&bite, 0xFF);
+	bite_write(&bite, 0xFF);
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+
+	bite_begin(&bite, 7, 16, BITE_ORDER_BIG_ENDIAN);
+	BITE_TEST_ASSERT(bite_read_u16(&bite) == (uint16_t)-1);
+	bite_end(&bite);
 }
 
 int main()
