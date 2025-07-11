@@ -408,6 +408,30 @@ void bite_test_special()
 	bite_begin(&bite, 7, 10, BITE_ORDER_LIL_ENDIAN);
 	BITE_TEST_ASSERT(bite_read_u16(&bite) == 0x3CD);
 	bite_end(&bite);
+
+	/*********************************************************************/
+	BITE_TEST_HIGHLIGHT_SECTION;
+	memset((void *)buf, 0, 8);
+
+	bite_init(&bite);
+	bite_set_buf(&bite, buf, 8);
+
+	/* Test correct byte representation in frame memory */
+	/* SG_ LB_Remain_Capacity :
+	 * 	7|10@0+ (1,0) [0|500] "gids" Vector__XXX */
+	bite_begin(&bite, 7U, 10U, BITE_ORDER_DBC_0);
+	bite_write_16(&bite, 125U);
+	bite_end(&bite);
+
+	/* SG_ LB_New_Full_Capacity :
+	 * 	13|10@0+ (80,250) [20000|24000] "wh" Vector__XXX */
+	bite_begin(&bite, 13U, 10U, BITE_ORDER_DBC_0);
+	bite_write_16(&bite, 296U);
+	bite_end(&bite);
+
+	bite_test_print_buf(buf);
+	/* Assert correct frame data representation */
+	assert(buf[0] == 0x1FU && buf[1] == 0x52U && buf[2] == 0x80U);
 }
 
 int main()
