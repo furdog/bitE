@@ -13,7 +13,7 @@ SOURCE="bite_mini.c"
 
 cppcheck --dump --std=c89 ${HEADER} --check-level=exhaustive
 
-#"$MISRA" check ${HEADER}
+"$MISRA" check ${HEADER}
 
 gcc ${SOURCE} -std=c89 -pedantic -Wall -Wextra -g \
 	      -fsanitize=undefined -fsanitize-undefined-trap-on-error \
