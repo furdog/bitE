@@ -47,6 +47,7 @@ struct bite {
 	uint8_t rshift;
 };
 
+/* High level logic */
 void bite_init(struct bite *self, uint8_t *buf,
 	       int8_t order, uint8_t start, uint8_t len)
 {
@@ -60,123 +61,114 @@ void bite_init(struct bite *self, uint8_t *buf,
 
 	if (order == (int8_t)BITE_ORDER_LIL_ENDIAN) {
 		self->buf    = &buf[start / 8U];
-		self->lshift =     (start % 8U);
-		self->rshift =  8U - self->lshift;
+		self->lshift = (start % 8U);
+		self->rshift = 8U - self->lshift;
 	} else if (order == (int8_t)BITE_ORDER_BIG_ENDIAN) {
-		/* CAN DBC reverses bit indexing for big endian
-		 * thus it's so complicated... Sorry! ;_; */
-		self->buf    = &buf[((start ^ 7U) + len - 1U) / 8U];
-		self->rshift =     (((start ^ 7U) + len)      % 8U);
-		self->lshift =  (8U - self->rshift)           % 8U;
+		self->buf    = &buf[((start ^ 7U) + len) / 8U];
+		self->rshift =     (((start ^ 7U) + len) % 8U);
+		self->lshift = 8U - self->rshift;
 	} else {
 		BYTE_LOGE("Invalid endianness");
 	}
 }
 
-/* Put byte into buf (little endian) */
 void bite_put_u8(struct bite *self, uint8_t data)
 {
 	uint8_t lshift = self->lshift;
 	uint8_t rshift = self->rshift;
 
-	bool byte_aligned     = (lshift == 0U);
-	bool less_than_8_bits = (self->len < 8U);
-	bool may_carry        = (self->len + lshift) >= 8U;
-
 	if (self->len == 0U) {
-		BYTE_LOG("overflow");	
-	/* If byte aligned and has more than 8 bits */
-	} else if (byte_aligned && !less_than_8_bits) {
-		BYTE_LOG("aligned");
+		BYTE_LOG("underflow");
+	} else if ((lshift == 0U) && (self->len >= 8U)) { /* Aligned */
 		*self->buf  = data;
 		 self->buf  = &self->buf[self->order];
 		 self->len -= 8U;
-	/* Unaligned data that wont fit into a single byte will be carried */
-	} else if (may_carry) {
+	} else if ((self->len + lshift) >= 8U) { /* Carried */
+		uint8_t max_carry; /* How many bits we can carry? */
+		uint8_t mask;
+
 		/* LSB part */
-		BYTE_LOG("carry");
-		*self->buf &= (0xFFU >> rshift);
+		 mask = 0xFFU >> rshift;
+		*self->buf &= mask;
 		*self->buf |= (uint8_t)(data << lshift);
 		 self->len -= rshift;
 			 
-		/* Advance to the byte we will carry MSB part into */
+		/* MSB part (carried to the next byte) */
 		self->buf = &self->buf[self->order];
-
-		/* If there are more than 7 bits in stream - carry full MSB */
-		if (self->len >= 8U) {
-			*self->buf  = (data >> rshift);
-			 self->len -= lshift;
-		/* Carry partial MSB */	
-		} else {
-			uint8_t mask = 0xFFU << self->len;
-
-			*self->buf &= mask;
-			*self->buf |= (data >> rshift) & (uint8_t)~mask;
-			 self->len -= self->len;
-		}
-	/* Last byte in the stream */
-	} else {
-		/* Make mask like this: 00011100 */
+		 max_carry = (self->len >= lshift) ? lshift : self->len;
+		 mask = 0xFFU << max_carry;
+		*self->buf &= mask;
+		*self->buf |= (data >> rshift) & (uint8_t)~mask;
+		 self->len -= max_carry;
+	} else { /* Special case (bit range like: 00111100) */
 		uint8_t mask = (0xFFU >> (8U - self->len)) << lshift;
 
-		BYTE_LOG("short");
 		*self->buf &= ~mask;
 		*self->buf |= (uint8_t)(data << lshift) & mask;
-		 self->len  = 0U; /* That's the last byte anyways */
+		 self->len  = 0U; /* That's will be last byte anyways */
 	}
 }
 
-/* Get byte from buf */
 uint8_t bite_get_u8(struct bite *self)
 {
 	uint8_t data = 0U;
+
 	uint8_t lshift = self->lshift;
 	uint8_t rshift = self->rshift;
 
-	bool byte_aligned     = (lshift == 0U);
-	bool less_than_8_bits = (self->len < 8U);
-	bool may_carry        = (self->len + lshift) >= 8U;
-
-	if (self->len == 0U) {
-		BYTE_LOG("underflow");
-		return 0U; // Return 0 or an error indicator
-	}
-
-	if (byte_aligned && !less_than_8_bits) {
-		BYTE_LOG("aligned read");
+	if (self->len == 0U) { /* Aligned */
+		BYTE_LOG("overflow");
+	} else if (byte_aligned && !less_than_8_bits) {
 		data       = *self->buf;
 		self->buf  = &self->buf[self->order];
 		self->len -= 8U;
-	} else if (may_carry) {
-		BYTE_LOG("carry read");
+	} else if (may_carry) { /* Carried */
+		uint8_t max_carry; /* How many bits we can carry? */
+		uint8_t mask;
+
 		/* Extract LSB part from current byte */
 		data       = (uint8_t)(*self->buf >> lshift);
 		self->len -= rshift; /* Bits consumed from the first byte */
 
-		/* Advance to the next byte for MSB part */
+		/* Extract MSB part from the next byte */
 		self->buf = &self->buf[self->order];
-
-		/* How many bits do we still need to form the 8-bit data?
-		 * (8 - rshift), which is lshift */
-		uint8_t bits_needed_from_next_byte = lshift;
-
-		/* If enough bits are available in the next byte */
-		if (self->len >= bits_needed_from_next_byte) {
-			uint8_t mask_next_byte = (1U << bits_needed_from_next_byte) - 1U; // Mask for the bits to read from the next byte
-			data |= (uint8_t)((*self->buf & mask_next_byte) << rshift);
-			self->len -= bits_needed_from_next_byte; // Consume the bits read from the second byte
-		} else { // Not enough bits for a full 8-bit read, take what's left
-			uint8_t mask_next_byte = (1U << self->len) - 1U; // Mask for the remaining bits in the next byte
-			data |= (uint8_t)((*self->buf & mask_next_byte) << rshift);
-			self->len = 0U; // All remaining bits consumed
-		}
-	} else { // Last byte in the stream, short read
-		// Make mask like this: 00011100 for self->len bits starting at lshift
+		max_carry = (self->len >= lshift) ? lshift : self->len;
+		mask = 0xFFU << max_carry;
+		data |= (*self->buf & (uint8_t)~mask) << rshift;
+		self->len -= max_carry;
+	} else { /* Special case (bit range like: 00111100) */
 		uint8_t mask = (0xFFU >> (8U - self->len)) << lshift;
-		BYTE_LOG("short read");
 		data = (uint8_t)((*self->buf & mask) >> lshift);
-		self->len = 0U; // Last bits read
+		self->len = 0U; /* That's will be last byte anyways */
 	}
 
 	return data;
+}
+
+void bite_put_u16(struct bite *self, uint16_t data)
+{
+	bite_put_u8(self, data >> 0U);
+	bite_put_u8(self, data >> 8U);
+}
+
+uint16_t bite_get_u16(struct bite *self)
+{
+	return ((uint16_t)bite_get_u8(self) << 0U) |
+	       ((uint16_t)bite_get_u8(self) << 8U);
+}
+
+void bite_put_u32(struct bite *self, uint32_t data)
+{
+	bite_put_u8(self, data >> 0U);
+	bite_put_u8(self, data >> 8U);
+	bite_put_u8(self, data >> 16U);
+	bite_put_u8(self, data >> 24U);
+}
+
+uint32_t bite_get_u32(struct bite *self)
+{
+	return ((uint32_t)bite_get_u8(self) << 0U)  |
+	       ((uint32_t)bite_get_u8(self) << 8U)  |
+	       ((uint32_t)bite_get_u8(self) << 16U) |
+	       ((uint32_t)bite_get_u8(self) << 24U);
 }
