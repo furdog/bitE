@@ -62,11 +62,11 @@ void bite_init(struct bite *self, uint8_t *buf,
 	if (order == (int8_t)BITE_ORDER_LIL_ENDIAN) {
 		self->buf    = &buf[start / 8U];
 		self->lshift = (start % 8U);
-		self->rshift = 8U - self->lshift;
+		self->rshift = (8U - self->lshift) % 8U;
 	} else if (order == (int8_t)BITE_ORDER_BIG_ENDIAN) {
-		self->buf    = &buf[((start ^ 7U) + len) / 8U];
+		self->buf    = &buf[((start ^ 7U) + len - 1U) / 8U];
 		self->rshift =     (((start ^ 7U) + len) % 8U);
-		self->lshift = 8U - self->rshift;
+		self->lshift = (8U - self->rshift) % 8U;
 	} else {
 		BYTE_LOGE("Invalid endianness");
 	}
@@ -163,6 +163,21 @@ uint16_t bite_get_u16(struct bite *self)
 	       ((uint16_t)bite_get_u8(self) << 8U);
 }
 
+int16_t bite_get_i16(struct bite *self)
+{
+	uint16_t result = 0U;
+	uint8_t  sign_bit_offset = self->len - 1U;
+
+	result = bite_get_u16(self);
+
+	/* Check sign, if present - invert MSB */
+	if ((result & (1U << (uint16_t)sign_bit_offset)) > 0U) {
+		result |= (0xFFU << (uint16_t)sign_bit_offset);
+	}
+
+	return (int16_t)result;
+}
+
 void bite_put_u32(struct bite *self, uint32_t data)
 {
 	bite_put_u8(self, data >> 0U);
@@ -177,4 +192,19 @@ uint32_t bite_get_u32(struct bite *self)
 	       ((uint32_t)bite_get_u8(self) << 8U)  |
 	       ((uint32_t)bite_get_u8(self) << 16U) |
 	       ((uint32_t)bite_get_u8(self) << 24U);
+}
+
+int32_t bite_get_i32(struct bite *self)
+{
+	uint32_t result = 0U;
+	uint8_t  sign_bit_offset = self->len - 1U;
+
+	result = bite_get_u32(self);
+
+	/* Check sign, if present - invert MSB */
+	if ((result & (1U << (uint32_t)sign_bit_offset)) > 0U) {
+		result |= (0xFFU << (uint32_t)sign_bit_offset);
+	}
+
+	return (int32_t)result;
 }
