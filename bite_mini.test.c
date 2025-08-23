@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define BYTE_LOG(s)  printf("%s\n", s)
+/*#define BYTE_LOG(s)  printf("%s\n", s)*/
 #define BYTE_LOGE(s) printf("%s\n", s)
 
 #include "bite_mini.h"
@@ -19,6 +19,39 @@ void print_bits(uint8_t *arr, uint8_t size)
 		printf("|%02X ", arr[i]);
 	}
 	printf("\n");
+}
+
+/* Test if bit bit positions correspond to CAN DBC data format */
+void bite_test_bit_positions_are_correct()
+{
+	uint8_t i;
+	uint8_t j;
+
+	struct bite b;
+	uint8_t buf[8U];
+
+	for (i = 0U; i <= 8U; i++) {
+		memset(buf, 0U, 8U);
+		bite_init(&b, buf, BITE_ORDER_LIL_ENDIAN, i, 16U);
+		bite_put_u16(&b, 0xFFFFU);
+		assert(buf[0U] == (uint8_t)(0xFFU << i));
+		assert(buf[1U] == 0xFFU);
+		assert(buf[2U] == ((i == 0U) ? 0U : (0xFFU >> (8U - i))));
+		printf("bit_idx = %02u | ", i); print_bits(buf, 3U);
+	}
+
+	for (j = 0U; j <= 8U; j++) {
+		i = (j ^ 7U);
+
+		memset(buf, 0U, 8U);
+		bite_init(&b, buf, BITE_ORDER_BIG_ENDIAN, i, 16U);
+		bite_put_u16(&b, 0xFFFFU);
+		assert(buf[0U] == (uint8_t)((j == 8U) ? 0x00U : (0xFFU >> j)));
+		assert(buf[1U] == 0xFFU);
+		assert(buf[2U] == (uint8_t)((j == 0U) ? 0U :
+						       (0xFFU << (8U - j))));
+		printf("bit_idx = %02u | ", i); print_bits(buf, 3U);
+	}
 }
 
 int main(void)
@@ -49,6 +82,8 @@ int main(void)
 	voltage_V2 = bite_get_u32(&b);
 	printf("Read is: %08X\n\n", voltage_V2);
 	assert(voltage_V2 == 0x0FAABBFFU);
+
+	bite_test_bit_positions_are_correct();
 
 	return 0;
 }

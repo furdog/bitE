@@ -9,7 +9,7 @@ MISRA='./MISRA/misra.sh'
 #HEADER="bite.h"
 #SOURCE="bite.test.c"
 HEADER="bite_mini.h"
-SOURCE="bite_mini.c"
+SOURCE="bite_mini.test.c"
 
 cppcheck --dump --std=c89 ${HEADER} --check-level=exhaustive
 
