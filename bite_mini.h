@@ -78,7 +78,7 @@ void bite_put_u8(struct bite *self, uint8_t data)
 	uint8_t rshift = self->rshift;
 
 	if (self->len == 0U) {
-		BYTE_LOG("underflow");
+		BYTE_LOG("overflow");
 	} else if ((lshift == 0U) && (self->len >= 8U)) { /* Aligned */
 		*self->buf  = data;
 		 self->buf  = &self->buf[self->order];
@@ -120,7 +120,7 @@ uint8_t bite_get_u8(struct bite *self)
 	uint8_t rshift = self->rshift;
 
 	if (self->len == 0U) { /* Aligned */
-		BYTE_LOG("overflow");
+		BYTE_LOG("underflow");
 	} else if ((lshift == 0U) && (self->len >= 8U)) {
 		data       = *self->buf;
 		self->buf  = &self->buf[self->order];
