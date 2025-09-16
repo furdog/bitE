@@ -154,6 +154,21 @@ uint8_t bite_get_u8(struct bite *self)
 	return data;
 }
 
+int16_t bite_get_i8(struct bite *self)
+{
+	uint8_t result = 0U;
+	uint8_t sign_bit_offset = self->len - 1U;
+
+	result = bite_get_u8(self);
+
+	/* Check sign, if present - invert MSB */
+	if ((result & (1U << sign_bit_offset)) > 0U) {
+		result |= (0xFFU << sign_bit_offset);
+	}
+
+	return result;
+}
+
 void bite_put_u16(struct bite *self, uint16_t data)
 {
 	bite_put_u8(self, data >> 0U);

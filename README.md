@@ -39,6 +39,7 @@ A simple C library for reading and writing data of various bit lengths and endia
 
       * `bite_put_u8(struct bite *self, uint8_t data)`
       * `bite_get_u8(struct bite *self)`
+      * `bite_get_i8(struct bite *self)`
       * `bite_put_u16(struct bite *self, uint16_t data)`
       * `bite_get_u16(struct bite *self)`
       * `bite_get_i16(struct bite *self)`
