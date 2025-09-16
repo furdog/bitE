@@ -48,28 +48,31 @@ struct bite {
 };
 
 /* High level logic */
-void bite_init(struct bite *self, uint8_t *buf,
-	       int8_t order, uint8_t start, uint8_t len)
+struct bite bite_init(uint8_t *buf, int8_t order, uint8_t start, uint8_t len)
 {
+	struct bite self;
+
 	if (len == 0U) {
 		BYTE_LOGE("Invalid length");
 	}
 
-	self->order = order;
-	self->start = start;
-	self->len   = len;
+	self.order = order;
+	self.start = start;
+	self.len   = len;
 
 	if (order == (int8_t)BITE_ORDER_LIL_ENDIAN) {
-		self->buf    = &buf[start / 8U];
-		self->lshift = (start % 8U);
-		self->rshift = (8U - self->lshift) % 8U;
+		self.buf    = &buf[start / 8U];
+		self.lshift = (start % 8U);
+		self.rshift = (8U - self.lshift) % 8U;
 	} else if (order == (int8_t)BITE_ORDER_BIG_ENDIAN) {
-		self->buf    = &buf[((start ^ 7U) + len - 1U) / 8U];
-		self->rshift =     (((start ^ 7U) + len) % 8U);
-		self->lshift = (8U - self->rshift) % 8U;
+		self.buf    = &buf[((start ^ 7U) + len - 1U) / 8U];
+		self.rshift =     (((start ^ 7U) + len) % 8U);
+		self.lshift = (8U - self.rshift) % 8U;
 	} else {
 		BYTE_LOGE("Invalid endianness");
 	}
+
+	return self;
 }
 
 void bite_put_u8(struct bite *self, uint8_t data)

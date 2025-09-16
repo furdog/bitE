@@ -31,7 +31,7 @@ A simple C library for reading and writing data of various bit lengths and endia
     struct bite my_data;
 
     /* Initialize a little-endian bit field starting at bit 12, with a length of 16 bits */
-    bite_init(&my_data, my_buffer, BITE_ORDER_LITTLE_ENDIAN, 12, 16);
+    my_data bite_init(my_buffer, BITE_ORDER_LITTLE_ENDIAN, 12, 16);
     ```
 
 2.  **Read or Write Data:**

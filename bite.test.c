@@ -32,7 +32,7 @@ void bite_test_bit_positions_are_correct()
 
 	for (i = 0U; i <= 8U; i++) {
 		memset(buf, 0U, 8U);
-		bite_init(&b, buf, BITE_ORDER_LIL_ENDIAN, i, 16U);
+		b = bite_init(buf, BITE_ORDER_LIL_ENDIAN, i, 16U);
 		bite_put_u16(&b, 0xFFFFU);
 		assert(buf[0U] == (uint8_t)(0xFFU << i));
 		assert(buf[1U] == 0xFFU);
@@ -44,7 +44,7 @@ void bite_test_bit_positions_are_correct()
 		i = (j ^ 7U);
 
 		memset(buf, 0U, 8U);
-		bite_init(&b, buf, BITE_ORDER_BIG_ENDIAN, i, 16U);
+		b = bite_init(buf, BITE_ORDER_BIG_ENDIAN, i, 16U);
 		bite_put_u16(&b, 0xFFFFU);
 		assert(buf[0U] == (uint8_t)((j == 8U) ? 0x00U : (0xFFU >> j)));
 		assert(buf[1U] == 0xFFU);
@@ -64,21 +64,21 @@ int main(void)
 	struct bite b;
 
 	memset(candata, 0U, 8U);
-	bite_init(&b, candata, BITE_ORDER_LIL_ENDIAN, 3U, 31U);
+	b = bite_init(candata, BITE_ORDER_LIL_ENDIAN, 3U, 31U);
 	bite_put_u32(&b, voltage_V);
 	print_bits(candata, 8U);
 
-	bite_init(&b, candata, BITE_ORDER_LIL_ENDIAN, 3U, 31U);
+	b = bite_init(candata, BITE_ORDER_LIL_ENDIAN, 3U, 31U);
 	voltage_V2 = bite_get_u32(&b);
 	printf("Read is: %08X\n\n", voltage_V2);
 	assert(voltage_V2 == 0x7FAABBFFU);
 
 	memset(candata, 0U, 8U);
-	bite_init(&b, candata, BITE_ORDER_BIG_ENDIAN, 6U, 28U);
+	b = bite_init(candata, BITE_ORDER_BIG_ENDIAN, 6U, 28U);
 	bite_put_u32(&b, voltage_V);
 	print_bits(candata, 8U);
 
-	bite_init(&b, candata, BITE_ORDER_BIG_ENDIAN, 6U, 28U);
+	b = bite_init(candata, BITE_ORDER_BIG_ENDIAN, 6U, 28U);
 	voltage_V2 = bite_get_u32(&b);
 	printf("Read is: %08X\n\n", voltage_V2);
 	assert(voltage_V2 == 0x0FAABBFFU);
