@@ -2,8 +2,8 @@
 #include <string.h>
 #include <stdio.h>
 
-/* #define BYTE_LOG(s)  printf("%s\n", s) */
-#define BYTE_LOGE(s) printf("%s\n", s)
+/* #define BITE_LOG(s)  printf("%s\n", s) */
+#define BITE_LOGE(s) printf("%s\n", s)
 
 #include "bite.h"
 

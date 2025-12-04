@@ -2,13 +2,13 @@
 #include <stdint.h>
 
 /* Normal log message */
-#ifndef BYTE_LOG
-#define BYTE_LOG(s)
+#ifndef BITE_LOG
+#define BITE_LOG(s)
 #endif
 
 /* Error log message */
-#ifndef BYTE_LOGE
-#define BYTE_LOGE(s)
+#ifndef BITE_LOGE
+#define BITE_LOGE(s)
 #endif
 
 /******************************************************************************
@@ -53,7 +53,7 @@ struct bite bite_init(uint8_t *buf, int8_t order, uint8_t start, uint8_t len)
 	struct bite self;
 
 	if (len == 0U) {
-		BYTE_LOGE("Invalid length");
+		BITE_LOGE("Invalid length");
 	}
 
 	self.order = order;
@@ -69,7 +69,7 @@ struct bite bite_init(uint8_t *buf, int8_t order, uint8_t start, uint8_t len)
 		self.rshift =     (((start ^ 7U) + len) % 8U);
 		self.lshift = (8U - self.rshift) % 8U;
 	} else {
-		BYTE_LOGE("Invalid endianness");
+		BITE_LOGE("Invalid endianness");
 	}
 
 	return self;
@@ -81,12 +81,12 @@ void bite_put_u8(struct bite *self, uint8_t data)
 	uint8_t rshift = self->rshift;
 
 	if (self->len == 0U) {
-		BYTE_LOG("overflow");
+		BITE_LOG("overflow");
 	} else if ((lshift == 0U) && (self->len >= 8U)) { /* Aligned */
 		*self->buf  = data;
 		 self->buf  = &self->buf[self->order];
 		 self->len -= 8U;
-		BYTE_LOG("aligned");
+		BITE_LOG("aligned");
 	} else if ((self->len + lshift) >= 8U) { /* Carried */
 		uint8_t max_carry; /* How many bits we can carry? */
 		uint8_t mask;
@@ -104,14 +104,14 @@ void bite_put_u8(struct bite *self, uint8_t data)
 		*self->buf &= mask;
 		*self->buf |= (data >> rshift) & (uint8_t)~mask;
 		 self->len -= max_carry;
-		BYTE_LOG("carry");
+		BITE_LOG("carry");
 	} else { /* Special case (bit range like: 00111100) */
 		uint8_t mask = (0xFFU >> (8U - self->len)) << lshift;
 
 		*self->buf &= ~mask;
 		*self->buf |= (uint8_t)(data << lshift) & mask;
 		 self->len  = 0U; /* That's will be last byte anyways */
-		BYTE_LOG("spec");
+		BITE_LOG("spec");
 	}
 }
 
@@ -123,12 +123,12 @@ uint8_t bite_get_u8(struct bite *self)
 	uint8_t rshift = self->rshift;
 
 	if (self->len == 0U) { /* Aligned */
-		BYTE_LOG("underflow");
+		BITE_LOG("underflow");
 	} else if ((lshift == 0U) && (self->len >= 8U)) {
 		data       = *self->buf;
 		self->buf  = &self->buf[self->order];
 		self->len -= 8U;
-		BYTE_LOG("aligned");
+		BITE_LOG("aligned");
 	} else if ((self->len + lshift) >= 8U) { /* Carried */
 		uint8_t max_carry; /* How many bits we can carry? */
 		uint8_t mask;
@@ -143,12 +143,12 @@ uint8_t bite_get_u8(struct bite *self)
 		mask = 0xFFU << max_carry;
 		data |= (*self->buf & (uint8_t)~mask) << rshift;
 		self->len -= max_carry;
-		BYTE_LOG("carry");
+		BITE_LOG("carry");
 	} else { /* Special case (bit range like: 00111100) */
 		uint8_t mask = (0xFFU >> (8U - self->len)) << lshift;
 		data = (uint8_t)((*self->buf & mask) >> lshift);
 		self->len = 0U; /* That's will be last byte anyways */
-		BYTE_LOG("spec");
+		BITE_LOG("spec");
 	}
 
 	return data;
