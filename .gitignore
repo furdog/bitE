@@ -1,5 +1,2 @@
-*.ctu-info
-*.dump
-*.exe
-*.s
 MISRA
+coverage
