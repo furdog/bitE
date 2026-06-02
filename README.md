@@ -10,10 +10,8 @@ bitE will read `8` or `less` bits and will increment its internal pointer to the
 If there's less than 8 bits available, `MSB` bits will be masked with zeros.
 
 ## Danger
-⚠️There are no bound checks and its up to user to perform them.
-You have to know how many bytes does you data occupy. If you read or write more than that - the behaviour is undefined.
-For example: 1 bit will occupy at least 1 byte of your array. 8 bits will also occupy 1 byte of your array, but 9 bits - is already two bytes.
-You are not obligated to know the data offset inside your array, `bitE` handles it for you.
+⚠️There are no bound checks during initialization and its up to user to perform them.
+You have to make sure that data range never leaves original `u8array` bounds.
 
 ⚠️There are no data conversion performed. All data read or written are just integers, either signed or unsigned.
 It's up to user to interpretet data, parsing offsets and multipliers.
@@ -67,3 +65,10 @@ I plan to eliminate all dangers and enhance functionality by:
 
 I have found a bug, pointed by fanalyzer. Looks like there are out of bound access during normal tests…
 Can't confirm yet.
+
+> 02.06.2026
+
+I have wrote more docs and comments inside code
+
+I have found that static analyzer was just extra cautios about boundary checks. Everything is safe after all.
+i have added a check `assert((self->order == 1) || (self->buf > self->ori));`, but i think it's better to change approach.
