@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define BITE_LOG(s)  printf("%s\n", s)
+#define BITE_LOG(s) printf("%s\n", s)
 #define BITE_LOGE(s) printf("%s\n", s)
 
 #include "bite.h"
