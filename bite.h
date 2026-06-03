@@ -39,9 +39,6 @@
 #define BITE_LOGE(s)
 #endif
 
-/******************************************************************************
- * CLASS
- *****************************************************************************/
 /** Order of operation. Selected by user. */
 enum bite_order {
 	/* Big endian orders */
@@ -88,7 +85,50 @@ struct bite {
 /** Initializes and returns bite instance.
  *  Takes uint8_t buffer, format, start bit position and data length (in bits).
  **/
-struct bite bite_init(uint8_t *buf, int8_t order, uint8_t start, uint8_t len)
+struct bite bite_init(uint8_t *buf, const int8_t order, const uint8_t start,
+		      const uint8_t len);
+
+/** Puts at least 8 bit of data into self->buf, until fills all the bits
+ *  according to self->len.
+ *
+ *  The first byte is considered LOW and is pushed straight or in reverse
+ *  order, according to selected endianness (r/w order) */
+void bite_put_u8(struct bite *self, const uint8_t data);
+
+/** Reads at least 8 bit from data into self->buf, until all self->len bits
+ *  are read. If there are less than 8 bits available, the result MSB will be
+ *  masked with zeros.
+ *
+ *  The first byte is considered LOW and is popped straight or in reverse
+ *  order, according to selected endianness (r/w order) */
+uint8_t bite_get_u8(struct bite *self);
+
+/** Same as bite_get_u8, but last MSB bit is considered a sign bit */
+int16_t bite_get_i8(struct bite *self);
+
+/** Two bite_put_u8 operation in a row, resulting in 16bit value or less. */
+void bite_put_u16(struct bite *self, const uint16_t data);
+
+/** Two bite_get_u8 operation in a row, resulting in 16bit value or less. */
+uint16_t bite_get_u16(struct bite *self);
+
+/** Two bite_get_u8 operation in a row, resulting in 16bit value or less.
+ *  The last MSB bit is considered a sign bit */
+int16_t bite_get_i16(struct bite *self);
+
+/** Four bite_put_u8 operation in a row, resulting in 32bit value or less. */
+void bite_put_u32(struct bite *self, const uint32_t data);
+
+/** Four bite_get_u8 operation in a row, resulting in 32bit value or less. */
+uint32_t bite_get_u32(struct bite *self);
+
+/** Four bite_get_u8 operation in a row, resulting in 32bit value or less.
+ *  The last MSB bit is considered a sign bit */
+int32_t bite_get_i32(struct bite *self);
+
+#ifdef BITE_IMPLEMENTATION
+struct bite bite_init(uint8_t *buf, const int8_t order, const uint8_t start,
+		      const uint8_t len)
 {
 	struct bite self;
 
@@ -124,12 +164,7 @@ struct bite bite_init(uint8_t *buf, int8_t order, uint8_t start, uint8_t len)
 	return self;
 }
 
-/** Puts at least 8 bit of data into self->buf, until fills all the bits
- *  according to self->len.
- *
- *  The first byte is considered LOW and is pushed straight or in reverse
- *  order, according to selected endianness (r/w order) */
-void bite_put_u8(struct bite *self, uint8_t data)
+void bite_put_u8(struct bite *self, const uint8_t data)
 {
 	uint8_t lml = self->lsb_mask_len;
 	uint8_t mml = self->msb_mask_len;
@@ -184,12 +219,6 @@ void bite_put_u8(struct bite *self, uint8_t data)
 	}
 }
 
-/** Reads at least 8 bit from data into self->buf, until all self->len bits
- *  are read. If there are less than 8 bits available, the result MSB will be
- *  masked with zeros.
- *
- *  The first byte is considered LOW and is popped straight or in reverse
- *  order, according to selected endianness (r/w order) */
 uint8_t bite_get_u8(struct bite *self)
 {
 	/* The code here is basically the same as in bite_put_u8.
@@ -234,7 +263,6 @@ uint8_t bite_get_u8(struct bite *self)
 	return data;
 }
 
-/** Same as bite_get_u8, but last MSB bit is considered a sign bit */
 int16_t bite_get_i8(struct bite *self)
 {
 	uint8_t result		= 0U;
@@ -250,22 +278,18 @@ int16_t bite_get_i8(struct bite *self)
 	return result;
 }
 
-/** Two bite_put_u8 operation in a row, resulting in 16bit value or less. */
-void bite_put_u16(struct bite *self, uint16_t data)
+void bite_put_u16(struct bite *self, const uint16_t data)
 {
 	bite_put_u8(self, data >> 0U);
 	bite_put_u8(self, data >> 8U);
 }
 
-/** Two bite_get_u8 operation in a row, resulting in 16bit value or less. */
 uint16_t bite_get_u16(struct bite *self)
 {
 	return ((uint16_t)bite_get_u8(self) << 0U) |
 	       ((uint16_t)bite_get_u8(self) << 8U);
 }
 
-/** Two bite_get_u8 operation in a row, resulting in 16bit value or less.
- *  The last MSB bit is considered a sign bit */
 int16_t bite_get_i16(struct bite *self)
 {
 	uint16_t result		 = 0U;
@@ -275,14 +299,13 @@ int16_t bite_get_i16(struct bite *self)
 
 	/* Check sign, if present - invert MSB part of the result */
 	if ((result & (1U << (uint16_t)sign_bit_offset)) > 0U) {
-		result |= (0xFFU << (uint16_t)sign_bit_offset);
+		result |= (0xFFFFU << (uint16_t)sign_bit_offset);
 	}
 
 	return (int16_t)result;
 }
 
-/** Four bite_put_u8 operation in a row, resulting in 32bit value or less. */
-void bite_put_u32(struct bite *self, uint32_t data)
+void bite_put_u32(struct bite *self, const uint32_t data)
 {
 	bite_put_u8(self, data >> 0U);
 	bite_put_u8(self, data >> 8U);
@@ -290,7 +313,6 @@ void bite_put_u32(struct bite *self, uint32_t data)
 	bite_put_u8(self, data >> 24U);
 }
 
-/** Four bite_get_u8 operation in a row, resulting in 32bit value or less. */
 uint32_t bite_get_u32(struct bite *self)
 {
 	return ((uint32_t)bite_get_u8(self) << 0U) |
@@ -299,8 +321,6 @@ uint32_t bite_get_u32(struct bite *self)
 	       ((uint32_t)bite_get_u8(self) << 24U);
 }
 
-/** Four bite_get_u8 operation in a row, resulting in 32bit value or less.
- *  The last MSB bit is considered a sign bit */
 int32_t bite_get_i32(struct bite *self)
 {
 	uint32_t result		 = 0U;
@@ -310,10 +330,11 @@ int32_t bite_get_i32(struct bite *self)
 
 	/* Check sign, if present - invert MSB part of the result */
 	if ((result & (1U << (uint32_t)sign_bit_offset)) > 0U) {
-		result |= (0xFFU << (uint32_t)sign_bit_offset);
+		result |= (0xFFFFFFFFU << (uint32_t)sign_bit_offset);
 	}
 
 	return (int32_t)result;
 }
+#endif /* BITE_IMPLEMENTATION */
 
 #endif /* BITE_HEADER_GUARD */

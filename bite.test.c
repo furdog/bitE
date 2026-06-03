@@ -4,6 +4,7 @@
 
 #define BITE_LOG(s) printf("%s\n", s)
 #define BITE_LOGE(s) printf("%s\n", s)
+#define BITE_IMPLEMENTATION
 
 #include "bite.h"
 
