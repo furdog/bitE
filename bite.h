@@ -29,14 +29,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Normal log message */
 #ifndef BITE_LOG
-#define BITE_LOG(s)
+#define BITE_LOG(s) /**< Normal log message */
 #endif
 
-/* Error log message */
 #ifndef BITE_LOGE
-#define BITE_LOGE(s)
+#define BITE_LOGE(s) /**< Error log message */
 #endif
 
 /** Order of operation. Selected by user. */
@@ -53,21 +51,31 @@ enum bite_order {
 	BITE_ORDER_DBC_1	 = 1
 };
 
+/** Signal definition (as in CAN dbc) */
+struct bite_signal {
+	uint8_t start; /**< Data start position (in bits) */
+	uint8_t len;   /**< Data length (in bits) */
+
+	/** Physical data order within buf (endianness):
+	 * 	-1 -> Big-endian    (low byte at high memory address)
+	 * 	+1 -> Little-endian (low byte at low  memory address) */
+	int8_t order;
+};
+
 /** Main instance. Is used to store intermediate and setup data,
  *  while various bite calls are performed */
 struct bite {
 	uint8_t *buf; /**< Data buffer */
-	uint8_t  cap; /**< Data buffer capacity */
+	uint8_t	 cap; /**< Data buffer capacity */
 
-	int8_t	 idx; /**< Data index */
+	int8_t idx; /**< Data index */
 
 	/** Physical data order within buf (endianness):
 	 * 	-1 -> Big-endian    (low byte at high memory address)
 	 * 	+1 -> Little-endian (low byte at low  memory address) */
 	int8_t order;
 
-	uint8_t start; /**< Data start position (in bits) */
-	uint8_t len;   /**< Data length (in bits) */
+	uint8_t rem; /**< Data length remaining (in bits) */
 
 	/* LSB and MSB masks are used in case if original data
 	 * has a binary offset within a payload. For example if the data is
@@ -85,20 +93,22 @@ struct bite {
 	bool overflow;
 };
 
-/** Initializes and returns bite instance.
- *  Takes uint8_t buffer, its capacity, format, start bit position and data length (in bits).
- **/
-struct bite bite_init(uint8_t *buf, const uint8_t cap, const int8_t order, const uint8_t start,
-		      const uint8_t len);
+/** Initializes bite instance.
+ *  Takes uint8_t buffer and its capacity. */
+void bite_init(struct bite *self, uint8_t *buf, const uint8_t capacity);
+
+/** Set signal config to work with (according to CAN dbc format)
+ *  returns true if success. */
+bool bite_set_sig(struct bite *self, const struct bite_signal *sig);
 
 /** Puts at least 8 bit of data into self->buf, until fills all the bits
- *  according to self->len.
+ *  according to self->rem.
  *
  *  The first byte is considered LOW and is pushed straight or in reverse
  *  order, according to selected endianness (r/w order) */
 void bite_put_u8(struct bite *self, const uint8_t data);
 
-/** Reads at least 8 bit from data into self->buf, until all self->len bits
+/** Reads at least 8 bit from data into self->buf, until all self->rem bits
  *  are read. If there are less than 8 bits available, the result MSB will be
  *  masked with zeros.
  *
@@ -130,91 +140,106 @@ uint32_t bite_get_u32(struct bite *self);
 int32_t bite_get_i32(struct bite *self);
 
 #ifdef BITE_IMPLEMENTATION
-struct bite bite_init(uint8_t *buf, const uint8_t cap, const int8_t order, const uint8_t start,
-		      const uint8_t len)
+void bite_init(struct bite *self, uint8_t *buf, const uint8_t capacity)
 {
-	struct bite self;
+	assert(self && buf);
 
-	if ((cap == 0u) && (len == 0u)) {
-		BITE_LOGE("Invalid capacity or length");
-	}
+	self->buf = buf;
+	self->cap = capacity;
 
-	self.buf   = buf;
-	self.cap   = cap;
-	self.order = order;
-	self.start = start;
-	self.len   = len;
+	self->order = 0;
+	self->rem   = 0u;
 
-	if (order == (int8_t)BITE_ORDER_LIL_ENDIAN) {
+	self->lsb_mask_len = 0u;
+	self->msb_mask_len = 0u;
+
+	self->overflow = false;
+}
+
+bool bite_set_sig(struct bite *self, const struct bite_signal *sig)
+{
+	bool success = true;
+
+	assert(self && sig);
+
+	self->order = sig->order;
+	self->rem   = sig->len;
+
+	if (sig->order == (int8_t)BITE_ORDER_LIL_ENDIAN) {
 		/* LOW byte goes first. For example:
 		 * payload: 0xFF 0xFF ... 0xFF 0xFF 0xFF
 		 *            ||                      ||
 		 *            LOW --(r/w order +1)--> HIGH */
-		self.idx	  = start / 8u;
-		self.lsb_mask_len = (start % 8u);
-		self.msb_mask_len = (8u - self.lsb_mask_len) % 8u;
-	} else if (order == (int8_t)BITE_ORDER_BIG_ENDIAN) {
+		self->idx	   = sig->start / 8u;
+		self->lsb_mask_len = (sig->start % 8u);
+		self->msb_mask_len = (8u - self->lsb_mask_len) % 8u;
+	} else if (sig->order == (int8_t)BITE_ORDER_BIG_ENDIAN) {
 		/* LOW byte goes last. For example:
 		 * payload: 0xFF 0xFF ... 0xFF 0xFF 0xFF
 		 *            ||                      ||
 		 *           HIGH <--(r/w order -1)-- LOW */
-		self.idx	  = ((start ^ 7u) + len - 1u) / 8u;
-		self.msb_mask_len = (((start ^ 7u) + len) % 8u);
-		self.lsb_mask_len = (8u - self.msb_mask_len) % 8u;
+		self->idx	   = ((sig->start ^ 7u) + sig->len - 1u) / 8u;
+		self->msb_mask_len = (((sig->start ^ 7u) + sig->len) % 8u);
+		self->lsb_mask_len = (8u - self->msb_mask_len) % 8u;
+		self->order	   = sig->order;
 	} else {
 		BITE_LOGE("Invalid endianness");
-		self.len = 0u;
+		self->rem = 0u;
+		success	  = false;
 	}
 
-	self.overflow = false;
-
-	return self;
+	return success;
 }
 
 /** @private
  *  Returns pointer to currently indexed data in buffer */
-uint8_t *_bite_peek(struct bite *self)
-{
-	return &self->buf[self->idx];
-}
+uint8_t *_bite_peek(struct bite *self) { return &self->buf[self->idx]; }
 
 /** @private
  *  Iterate to the next byte in buffer.
  *  Will either decrement or increment buffer index (endianness specific) */
-void _bite_next(struct bite *self) {
+void _bite_next(struct bite *self)
+{
 	self->idx += self->order;
 
 	/* Handle overflows softly... */
 	if (self->idx < 0) {
-		self->idx = 0;
+		self->idx      = 0;
 		self->overflow = true;
-	} else if (self->idx > self->cap) {
-		self->idx = self->cap;
+	} else if (self->idx > (int8_t)self->cap) {
+		self->idx      = self->cap;
 		self->overflow = true;
+	} else {
 	}
 
-	/* TEST TODO */
+	/* TODO enable this? */
 	/* assert(!self->overflow); */
 }
 
+/* TODO return boolean status */
 void bite_put_u8(struct bite *self, const uint8_t input)
 {
 	uint8_t lml = self->lsb_mask_len;
 	uint8_t mml = self->msb_mask_len;
 
-	if (self->len == 0u) {
+	if (self->rem == 0u) {
 		BITE_LOG("overflow");
-	} else if ((lml == 0u) && (self->len >= 8u)) { /* Aligned */
+	} else if ((lml == 0u) && (self->rem >= 8u)) { /* Aligned */
 		/* If lsb mask is zero, it means that input is not shifted
 		 * inside payload. We can safely read the payload and map it
 		 * directly to input. The only exception if there are less
 		 * than 8 bits of length remaining */
 
-		*_bite_peek(self) = input;
-		_bite_next(self);
-		self->len -= 8u;
+		*_bite_peek(self)  = input;
+		self->rem	  -= 8u;
+
+		/* Advance to the next byte if there bits left */
+		if (self->rem > 0u) {
+			_bite_next(self);
+		}
+
 		BITE_LOG("aligned");
-	} else if ((self->len + lml) >= 8u) { /* Carried */
+	} else if ((self->rem + lml) >= 8u) { /* Carried */
 		/* This condition checks if input occupies more than 2
 		 * bytes(where MSB is carried) within payload. In this case we
 		 * read/write LSB from/to buf[0] and MSB from/to buf[1],
@@ -227,29 +252,30 @@ void bite_put_u8(struct bite *self, const uint8_t input)
 		mask		   = 0xFFu >> mml;
 		*_bite_peek(self) &= mask;
 		*_bite_peek(self) |= (uint8_t)(input << lml);
-		self->len	  -= mml;
+		self->rem	  -= mml;
 
 		/* Masking and writing MSB part to buffer[1] */
 		_bite_next(self);
 
 		/* If this is a last byte, MSB may be shorter than LSB mask */
-		max_carry = (self->len >= lml) ? lml : self->len;
+		max_carry = (self->rem >= lml) ? lml : self->rem;
 		mask	  = 0xFFu << max_carry;
 
 		*_bite_peek(self) &= mask;
 		*_bite_peek(self) |= (input >> mml) & (uint8_t)~mask;
-		self->len	  -= max_carry;
+		self->rem	  -= max_carry;
 		BITE_LOG("carry");
 	} else { /* Special case (sub-byte range like: 00111100) */
-		uint8_t mask = (0xFFu >> (8u - self->len)) << lml;
+		uint8_t mask = (0xFFu >> (8u - self->rem)) << lml;
 
 		*_bite_peek(self) &= ~mask;
 		*_bite_peek(self) |= (uint8_t)(input << lml) & mask;
-		self->len	   = 0u; /* That's will be last byte anyways */
+		self->rem	   = 0u; /* That's will be last byte anyways */
 		BITE_LOG("spec");
 	}
 }
 
+/* TODO return boolean status */
 uint8_t bite_get_u8(struct bite *self)
 {
 	/* The code here is basically the same as in bite_put_u8.
@@ -260,44 +286,50 @@ uint8_t bite_get_u8(struct bite *self)
 	uint8_t lml = self->lsb_mask_len;
 	uint8_t mml = self->msb_mask_len;
 
-	if (self->len == 0u) { /* Aligned */
+	if (self->rem == 0u) { /* Aligned */
 		BITE_LOG("underflow");
-	} else if ((lml == 0u) && (self->len >= 8u)) {
-		output = *_bite_peek(self);
-		_bite_next(self);
-		self->len -= 8u;
+	} else if ((lml == 0u) && (self->rem >= 8u)) {
+		output	   = *_bite_peek(self);
+		self->rem -= 8u;
+
+		/* Advance to the next byte if there bits left */
+		if (self->rem > 0u) {
+			_bite_next(self);
+		}
+
 		BITE_LOG("aligned");
-	} else if ((self->len + lml) >= 8u) { /* Carried */
+	} else if ((self->rem + lml) >= 8u) { /* Carried */
 		uint8_t max_carry;	      /* How many bits we can carry? */
 		uint8_t mask;
 
 		/* Extract LSB part from current byte */
 		output	   = (uint8_t)(*_bite_peek(self) >> lml);
-		self->len -= mml; /* Bits consumed from the first byte */
+		self->rem -= mml; /* Bits consumed from the first byte */
 
 		/* Extract MSB part from the next byte */
 		_bite_next(self);
 
 		/* If this is a last byte, MSB may be shorter than LSB mask */
-		max_carry  = (self->len >= lml) ? lml : self->len;
+		max_carry  = (self->rem >= lml) ? lml : self->rem;
 		mask	   = 0xFFu << max_carry;
 		output	  |= (*_bite_peek(self) & (uint8_t)~mask) << mml;
-		self->len -= max_carry;
+		self->rem -= max_carry;
 		BITE_LOG("carry");
 	} else { /* Special case (bit range like: 00111100) */
-		uint8_t mask = (0xFFu >> (8u - self->len)) << lml;
+		uint8_t mask = (0xFFu >> (8u - self->rem)) << lml;
 		output	     = (uint8_t)((*_bite_peek(self) & mask) >> lml);
-		self->len    = 0u; /* That's will be last byte anyways */
+		self->rem    = 0u; /* That's will be last byte anyways */
 		BITE_LOG("spec");
 	}
 
 	return output;
 }
 
+/* TODO return boolean status */
 int16_t bite_get_i8(struct bite *self)
 {
 	uint8_t result		= 0u;
-	uint8_t sign_bit_offset = self->len - 1u;
+	uint8_t sign_bit_offset = self->rem - 1u;
 
 	result = bite_get_u8(self);
 
@@ -309,22 +341,25 @@ int16_t bite_get_i8(struct bite *self)
 	return result;
 }
 
+/* TODO return boolean status */
 void bite_put_u16(struct bite *self, const uint16_t data)
 {
 	bite_put_u8(self, data >> 0u);
 	bite_put_u8(self, data >> 8u);
 }
 
+/* TODO return boolean status */
 uint16_t bite_get_u16(struct bite *self)
 {
 	return ((uint16_t)bite_get_u8(self) << 0u) |
 	       ((uint16_t)bite_get_u8(self) << 8u);
 }
 
+/* TODO return boolean status */
 int16_t bite_get_i16(struct bite *self)
 {
 	uint16_t result		 = 0u;
-	uint8_t	 sign_bit_offset = self->len - 1u;
+	uint8_t	 sign_bit_offset = self->rem - 1u;
 
 	result = bite_get_u16(self);
 
@@ -336,6 +371,7 @@ int16_t bite_get_i16(struct bite *self)
 	return (int16_t)result;
 }
 
+/* TODO return boolean status */
 void bite_put_u32(struct bite *self, const uint32_t data)
 {
 	bite_put_u8(self, data >> 0u);
@@ -344,6 +380,7 @@ void bite_put_u32(struct bite *self, const uint32_t data)
 	bite_put_u8(self, data >> 24u);
 }
 
+/* TODO return boolean status */
 uint32_t bite_get_u32(struct bite *self)
 {
 	return ((uint32_t)bite_get_u8(self) << 0u) |
@@ -352,10 +389,11 @@ uint32_t bite_get_u32(struct bite *self)
 	       ((uint32_t)bite_get_u8(self) << 24u);
 }
 
+/* TODO return boolean status */
 int32_t bite_get_i32(struct bite *self)
 {
 	uint32_t result		 = 0u;
-	uint8_t	 sign_bit_offset = self->len - 1u;
+	uint8_t	 sign_bit_offset = self->rem - 1u;
 
 	result = bite_get_u32(self);
 

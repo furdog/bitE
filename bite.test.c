@@ -27,13 +27,20 @@ void bite_test_bit_positions_are_correct()
 {
 	uint8_t i;
 	uint8_t j;
+	uint8_t buf[8U];
 
-	struct bite b;
-	uint8_t	    buf[8U];
+	struct bite	   b;
+	struct bite_signal s;
+
+	bite_init(&b, buf, 8u);
 
 	for (i = 0U; i <= 8U; i++) {
 		memset(buf, 0U, 8U);
-		b = bite_init(buf, 8u, BITE_ORDER_LIL_ENDIAN, i, 16U);
+		s.order = BITE_ORDER_LIL_ENDIAN;
+		s.start = i;
+		s.len	= 16U;
+		bite_set_sig(&b, &s);
+
 		bite_put_u16(&b, 0xFFFFU);
 		assert(buf[0U] == (uint8_t)(0xFFU << i));
 		assert(buf[1U] == 0xFFU);
@@ -46,7 +53,12 @@ void bite_test_bit_positions_are_correct()
 		i = (j ^ 7U);
 
 		memset(buf, 0U, 8U);
-		b = bite_init(buf, 8u, BITE_ORDER_BIG_ENDIAN, i, 16U);
+
+		s.order = BITE_ORDER_BIG_ENDIAN;
+		s.start = i;
+		s.len	= 16U;
+		bite_set_sig(&b, &s);
+
 		bite_put_u16(&b, 0xFFFFU);
 		assert(buf[0U] == (uint8_t)((j == 8U) ? 0x00U : (0xFFU >> j)));
 		assert(buf[1U] == 0xFFU);
@@ -61,27 +73,37 @@ int main(void)
 {
 	/*uint16_t voltage_V  = 1337U;*/
 	/*uint32_t voltage_V  = 0x3377BBFFU;*/
-	uint32_t    voltage_V	= 0xFFAABBFFU;
-	uint32_t    voltage_V2	= 0U;
-	uint8_t	    candata[8U] = {0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
-	struct bite b;
+	uint32_t	   voltage_V   = 0xFFAABBFFU;
+	uint32_t	   voltage_V2  = 0U;
+	uint8_t		   candata[8U] = {0U, 0U, 0U, 0U, 0U, 0U, 0U, 0U};
+	struct bite	   b;
+	struct bite_signal s;
+
+	bite_init(&b, candata, 8u);
 
 	memset(candata, 0U, 8U);
-	b = bite_init(candata, 8u, BITE_ORDER_LIL_ENDIAN, 3U, 31U);
+
+	s.order = BITE_ORDER_LIL_ENDIAN;
+	s.start = 3u;
+	s.len	= 31U;
+	bite_set_sig(&b, &s);
 	bite_put_u32(&b, voltage_V);
 	print_bits(candata, 8U);
 
-	b	   = bite_init(candata, 8u, BITE_ORDER_LIL_ENDIAN, 3U, 31U);
+	bite_set_sig(&b, &s);
 	voltage_V2 = bite_get_u32(&b);
 	printf("Read is: %08X\n\n", voltage_V2);
 	assert(voltage_V2 == 0x7FAABBFFU);
 
 	memset(candata, 0U, 8U);
-	b = bite_init(candata, 8u, BITE_ORDER_BIG_ENDIAN, 6U, 28U);
+	s.order = BITE_ORDER_BIG_ENDIAN;
+	s.start = 6u;
+	s.len	= 28U;
+	bite_set_sig(&b, &s);
 	bite_put_u32(&b, voltage_V);
 	print_bits(candata, 8U);
 
-	b	   = bite_init(candata, 8u, BITE_ORDER_BIG_ENDIAN, 6U, 28U);
+	bite_set_sig(&b, &s);
 	voltage_V2 = bite_get_u32(&b);
 	printf("Read is: %08X\n\n", voltage_V2);
 	assert(voltage_V2 == 0x0FAABBFFU);

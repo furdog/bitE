@@ -10,9 +10,6 @@ bitE will read `8` or `less` bits and will increment its internal pointer to the
 If there's less than 8 bits available, `MSB` bits will be masked with zeros.
 
 ## Danger
-⚠️There are no bound checks during initialization and its up to user to perform them.
-You have to make sure that data range never leaves original `u8array` bounds.
-
 ⚠️There are no data conversion performed. All data read or written are just integers, either signed or unsigned.
 It's up to user to interpretet data, parsing offsets and multipliers.
 
