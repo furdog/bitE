@@ -33,6 +33,7 @@ void bite_test_bit_positions_are_correct()
 	struct bite_signal s;
 
 	bite_init(&b, buf, 8u);
+	bite_sig_init(&s);
 
 	for (i = 0U; i <= 8U; i++) {
 		memset(buf, 0U, 8U);
@@ -80,6 +81,7 @@ int main(void)
 	struct bite_signal s;
 
 	bite_init(&b, candata, 8u);
+	bite_sig_init(&s);
 
 	memset(candata, 0U, 8U);
 

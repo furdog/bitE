@@ -51,8 +51,18 @@ enum bite_order {
 	BITE_ORDER_DBC_1	 = 1
 };
 
-/** Signal definition (as in CAN dbc) */
+/** Signal definition (as in CAN dbc).
+ *  @note This structure may not be optimal for simple signals */
 struct bite_signal {
+	const char *label; /**< Label used by the signal */
+	const char *unit;  /**< Unit */
+
+	/* (TODO integer arithmetic) */
+	float factor; /**< Real value must be multiplied by this factor */
+	float offset; /**< Real value offset (calculated after factor) */
+	float min;    /**< Minimum allowed range */
+	float max;    /**< Maximum allowed range */
+
 	uint8_t start; /**< Data start position (in bits) */
 	uint8_t len;   /**< Data length (in bits) */
 
@@ -60,6 +70,9 @@ struct bite_signal {
 	 * 	-1 -> Big-endian    (low byte at high memory address)
 	 * 	+1 -> Little-endian (low byte at low  memory address) */
 	int8_t order;
+
+	/** Signed/Unsigned (+/-) */
+	uint8_t type;
 };
 
 /** Main instance. Is used to store intermediate and setup data,
@@ -96,6 +109,9 @@ struct bite {
 /** Initializes bite instance.
  *  Takes uint8_t buffer and its capacity. */
 void bite_init(struct bite *self, uint8_t *buf, const uint8_t capacity);
+
+/** Initializes bite signal instance. */
+void bite_sig_init(struct bite_signal *self);
 
 /** Set signal config to work with (according to CAN dbc format)
  *  returns true if success. */
@@ -154,6 +170,26 @@ void bite_init(struct bite *self, uint8_t *buf, const uint8_t capacity)
 	self->msb_mask_len = 0u;
 
 	self->overflow = false;
+}
+
+void bite_sig_init(struct bite_signal *self)
+{
+	assert(self);
+
+	self->label = NULL;
+	self->unit  = NULL;
+
+	self->factor = 0.0f;
+	self->offset = 0.0f;
+	self->min    = 0.0f;
+	self->max    = 0.0f;
+
+	self->start = 0u;
+	self->len   = 0u;
+
+	self->order = 0u;
+
+	self->type = 0u;
 }
 
 bool bite_set_sig(struct bite *self, const struct bite_signal *sig)
@@ -222,6 +258,8 @@ void bite_put_u8(struct bite *self, const uint8_t input)
 	uint8_t lml = self->lsb_mask_len;
 	uint8_t mml = self->msb_mask_len;
 
+	assert(self);
+
 	if (self->rem == 0u) {
 		BITE_LOG("overflow");
 	} else if ((lml == 0u) && (self->rem >= 8u)) { /* Aligned */
@@ -285,6 +323,8 @@ uint8_t bite_get_u8(struct bite *self)
 
 	uint8_t lml = self->lsb_mask_len;
 	uint8_t mml = self->msb_mask_len;
+
+	assert(self);
 
 	if (self->rem == 0u) { /* Aligned */
 		BITE_LOG("underflow");
