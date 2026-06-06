@@ -51,30 +51,6 @@ enum bite_order {
 	BITE_ORDER_DBC_1	 = 1
 };
 
-/** Signal definition (as in CAN dbc).
- *  @note This structure may not be optimal for simple signals */
-struct bite_signal {
-	const char *label; /**< Label used by the signal */
-	const char *unit;  /**< Unit */
-
-	/* (TODO integer arithmetic) */
-	float factor; /**< Real value must be multiplied by this factor */
-	float offset; /**< Real value offset (calculated after factor) */
-	float min;    /**< Minimum allowed range */
-	float max;    /**< Maximum allowed range */
-
-	uint8_t start; /**< Data start position (in bits) */
-	uint8_t len;   /**< Data length (in bits) */
-
-	/** Physical data order within buf (endianness):
-	 * 	-1 -> Big-endian    (low byte at high memory address)
-	 * 	+1 -> Little-endian (low byte at low  memory address) */
-	int8_t order;
-
-	/** Signed/Unsigned (+/-) */
-	uint8_t type;
-};
-
 /** Main instance. Is used to store intermediate and setup data,
  *  while various bite calls are performed */
 struct bite {
@@ -101,21 +77,15 @@ struct bite {
 	 **/
 	uint8_t lsb_mask_len; /**< Mask used to read/write LSB part */
 	uint8_t msb_mask_len; /**< Mask used to read/write MSB part */
-
-	/* Flag that catches overflows */
-	bool overflow;
 };
 
 /** Initializes bite instance.
  *  Takes uint8_t buffer and its capacity. */
 void bite_init(struct bite *self, uint8_t *buf, const uint8_t capacity);
 
-/** Initializes bite signal instance. */
-void bite_sig_init(struct bite_signal *self);
-
-/** Set signal config to work with (according to CAN dbc format)
- *  returns true if success. */
-bool bite_set_sig(struct bite *self, const struct bite_signal *sig);
+/** Minimal setup to read/write bit range from/to buffer */
+bool bite_config(struct bite *self, const int8_t order, const uint8_t start,
+		 const uint8_t len);
 
 /** Puts at least 8 bit of data into self->buf, until fills all the bits
  *  according to self->rem.
@@ -168,56 +138,35 @@ void bite_init(struct bite *self, uint8_t *buf, const uint8_t capacity)
 
 	self->lsb_mask_len = 0u;
 	self->msb_mask_len = 0u;
-
-	self->overflow = false;
 }
 
-void bite_sig_init(struct bite_signal *self)
-{
-	assert(self);
-
-	self->label = NULL;
-	self->unit  = NULL;
-
-	self->factor = 0.0f;
-	self->offset = 0.0f;
-	self->min    = 0.0f;
-	self->max    = 0.0f;
-
-	self->start = 0u;
-	self->len   = 0u;
-
-	self->order = 0u;
-
-	self->type = 0u;
-}
-
-bool bite_set_sig(struct bite *self, const struct bite_signal *sig)
+bool bite_config(struct bite *self, const int8_t order, const uint8_t start,
+		 const uint8_t len)
 {
 	bool success = true;
 
-	assert(self && sig);
+	assert(self);
 
-	self->order = sig->order;
-	self->rem   = sig->len;
+	self->order = order;
+	self->rem   = len;
 
-	if (sig->order == (int8_t)BITE_ORDER_LIL_ENDIAN) {
+	if (order == (int8_t)BITE_ORDER_LIL_ENDIAN) {
 		/* LOW byte goes first. For example:
 		 * payload: 0xFF 0xFF ... 0xFF 0xFF 0xFF
 		 *            ||                      ||
 		 *            LOW --(r/w order +1)--> HIGH */
-		self->idx	   = sig->start / 8u;
-		self->lsb_mask_len = (sig->start % 8u);
+		self->idx	   = start / 8u;
+		self->lsb_mask_len = (start % 8u);
 		self->msb_mask_len = (8u - self->lsb_mask_len) % 8u;
-	} else if (sig->order == (int8_t)BITE_ORDER_BIG_ENDIAN) {
+	} else if (order == (int8_t)BITE_ORDER_BIG_ENDIAN) {
 		/* LOW byte goes last. For example:
 		 * payload: 0xFF 0xFF ... 0xFF 0xFF 0xFF
 		 *            ||                      ||
 		 *           HIGH <--(r/w order -1)-- LOW */
-		self->idx	   = ((sig->start ^ 7u) + sig->len - 1u) / 8u;
-		self->msb_mask_len = (((sig->start ^ 7u) + sig->len) % 8u);
+		self->idx	   = ((start ^ 7u) + len - 1u) / 8u;
+		self->msb_mask_len = (((start ^ 7u) + len) % 8u);
 		self->lsb_mask_len = (8u - self->msb_mask_len) % 8u;
-		self->order	   = sig->order;
+		self->order	   = order;
 	} else {
 		BITE_LOGE("Invalid endianness");
 		self->rem = 0u;
@@ -238,18 +187,15 @@ void _bite_next(struct bite *self)
 {
 	self->idx += self->order;
 
-	/* Handle overflows softly... */
+	/* Handle overflows */
 	if (self->idx < 0) {
-		self->idx      = 0;
-		self->overflow = true;
+		self->idx = 0;
+		assert(false && "Index underflow");
 	} else if (self->idx > (int8_t)self->cap) {
-		self->idx      = self->cap;
-		self->overflow = true;
+		self->idx = self->cap;
+		assert(false && "Index overflow");
 	} else {
 	}
-
-	/* TODO enable this? */
-	/* assert(!self->overflow); */
 }
 
 /* TODO return boolean status */
@@ -445,5 +391,149 @@ int32_t bite_get_i32(struct bite *self)
 	return (int32_t)result;
 }
 #endif /* BITE_IMPLEMENTATION */
+
+/** Signal definition (as in CAN dbc).
+ *  @note This structure may not be optimal for simple signals */
+struct bite_signal {
+	const char *label; /**< Label used by the signal */
+	const char *unit;  /**< Unit */
+
+	/* (TODO integer arithmetic) */
+	float factor; /**< Real value must be multiplied by this factor */
+	float offset; /**< Real value offset (calculated after factor) */
+	float min;    /**< Minimum allowed range */
+	float max;    /**< Maximum allowed range */
+
+	uint8_t start; /**< Data start position (in bits) */
+	uint8_t len;   /**< Data length (in bits) */
+
+	/** Physical data order within buf (endianness):
+	 * 	-1 -> Big-endian    (low byte at high memory address)
+	 * 	+1 -> Little-endian (low byte at low  memory address) */
+	int8_t order;
+
+	/** Signed/Unsigned (+/-) */
+	uint8_t type;
+};
+
+/** Initializes bite signal instance. */
+void bite_sig_init(struct bite_signal *self);
+
+/** Set signal config to work with (according to CAN dbc format)
+ *  returns true if success. */
+bool bite_set_sig(struct bite *self, const struct bite_signal *sig);
+
+#ifdef BITE_SIG_IMPLEMENTATION
+void bite_sig_init(struct bite_signal *self)
+{
+	assert(self);
+
+	self->label = NULL;
+	self->unit  = NULL;
+
+	self->factor = 0.0f;
+	self->offset = 0.0f;
+	self->min    = 0.0f;
+	self->max    = 0.0f;
+
+	self->start = 0u;
+	self->len   = 0u;
+
+	self->order = 0u;
+
+	self->type = 0u;
+}
+
+bool bite_set_sig(struct bite *self, const struct bite_signal *sig)
+{
+	assert(self && sig);
+
+	return bite_config(self, sig->order, sig->start, sig->len);
+}
+#endif /* BITE_SIG_IMPLEMENTATION */
+
+/** This struct represents Can DBC message
+ *  @warning HEAVY WIP */
+struct bite_msg {
+	uint32_t    bo_id;
+	const char *bo_msgname;
+	uint8_t	    bo_msglen;
+	const char *bo_sender;
+
+	struct bite_msg *sig_list;
+	size_t		 sig_count;
+};
+
+#ifndef BITE_CGEN
+#define BITE_CGEN(s) /**< Code generation output */
+#endif
+
+/** C generator setup instance.
+ * Responsible for code generation output.
+ *
+ * Ongoing WIP (NOT FOR PRODUCTION CODE) */
+struct bite_cgen {
+	struct bite b;
+
+	struct bite_msg *msg_list; /**< We must allocate list of messages... */
+	size_t		 msg_count;
+
+	/** Supported cpu word len: 1, 2, 4, 8, 16 (bytes)
+	 * All input data will be multiple of wordlen
+	 * Can be bigger than actual machine instruction, if supported by
+	 * target C compiler. Can be less than machine instruction too.
+	 *
+	 * For maximum portablity select 1byte wordlen. Slow, but safe. */
+	uint8_t cpu_wordlen;
+
+	/** -1 Big endian; +1 Little endian. 0 - omit.
+	 * Target CPU endianness.
+	 *
+	 * Though bite will try to generate portable C code.
+	 * Some Non portable features may depend on platform endianness
+	 * for better optimization. */
+	uint8_t cpu_endianess;
+};
+
+#ifdef BITE_C_GEN_IMPLEMENTATION
+void cgen_init(struct bite_cgen *self)
+{
+	self->cpu_wordlen   = 0u;
+	self->cpu_endianess = 0u;
+}
+
+void bite_cgen_sig_write(struct bite_cgen *self, const struct bite_signal *sig)
+{
+	/*uint8_t output_wordlen = 1u;*/ /* At least 8 bit */
+
+	assert(self && sig);
+
+	/* Output wordlen determined based on signal data */
+	/* Nearest power of 2 */
+	/*while (output_wordlen < ((sig->len + 8u) / 8u)) {
+		output_wordlen *= 2u;
+	}
+
+	BITE_CGEN(("#include <stdint.h>\n\n"));
+
+	BITE_CGEN(("void bite_sig_%s_write(uint%u_t *dst, uint%u_t *src)\n",
+		    sig->label, self->cpu_wordlen * 8u, output_wordlen * 8u));
+
+	BITE_CGEN(("{\n"));
+	BITE_CGEN(("\t#warning Nothing has been yet generated (WIP)\n"));
+	BITE_CGEN(("}\n"));*/
+}
+
+void bite_cgen_sig(struct bite_cgen *self, const struct bite_signal *sig)
+{
+	assert(self && sig);
+
+	/* We don't need to initialize bite struct, since we do not utilize
+	 * standard bite functionality and only need some calculated values. */
+	(void)bite_set_sig(&self->b, sig);
+
+	bite_cgen_sig_write(self, sig);
+}
+#endif /* BITE_C_GEN_IMPLEMENTATION */
 
 #endif /* BITE_HEADER_GUARD */
